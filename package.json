@@ -1,0 +1,29 @@
+{
+  "name": "image-converter-pro",
+  "version": "1.0.0",
+  "description": "Professional image converter with batch processing, compression, and auto-ZIP support",
+  "main": "app.js",
+  "scripts": {
+    "start": "npx http-server . -p 8080 -c-1",
+    "dev": "npx http-server . -p 8080 -c-1 -o",
+    "api": "node api/server.js"
+  },
+  "keywords": [
+    "image-converter",
+    "image-compression",
+    "batch-converter",
+    "png-to-jpg",
+    "webp-converter",
+    "image-optimizer"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {},
+  "optionalDependencies": {
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "sharp": "^0.32.6"
+  }
+}
+
