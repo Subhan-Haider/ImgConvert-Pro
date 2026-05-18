@@ -1,73 +1,57 @@
-# React + TypeScript + Vite
+# Image Converter Pro 🎨 & Client-Side PDF Tools 📄
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A powerful, privacy-first web application for processing images and PDF documents entirely in your browser. No files are ever uploaded to a server—everything runs locally using modern Web APIs.
 
-Currently, two official plugins are available:
+## 🌟 Key Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+### 🖼️ Image Processing (Converter)
+* **Format Conversion**: Convert between WebP, PNG, JPEG, GIF, BMP, and ICO.
+* **Smart Compression**: Compress images with adjustable quality sliders to save space.
+* **Resizing Engine**: Precisely resize images by width and height while maintaining aspect ratios.
+* **Rounded Corners**: Add beautifully rounded borders and corners to any image before downloading.
+* **Batch Support**: Drag and drop multiple images at once.
 
-## React Compiler
+### 📄 Document Processing (PDF Tools)
+* **PDF Organizer**: Visually drag, drop, rotate, and delete pages from multiple PDFs, then compile them into a single merged document.
+* **PDF to Images**: Extract pages from your PDF documents into high-resolution (300 DPI) PNG or JPEG images.
+* **Images to PDF**: Compile multiple images into a standardized PDF format (A4, Letter, or Fit-to-image).
+* **Compress PDF**: Reduce PDF file sizes significantly with Low, Medium, High, or Quality-Preserving compression modes.
+* **Native Sharing**: Share compiled documents and extracted images directly to WhatsApp, email, or other apps using the native OS Share Sheet.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🔒 100% Privacy Promise
+This entire suite of tools is designed to execute locally within the browser's virtualized sandbox via JavaScript/WebAssembly. **No files, images, or metadata ever touch an external server.**
 
-## Expanding the ESLint configuration
+## 🚀 Tech Stack
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+* **Frontend Framework**: React 18 with TypeScript
+* **Build Tool**: Vite
+* **Styling**: Tailwind CSS with custom Glassmorphism UI
+* **Icons**: Lucide React
+* **PDF Engine**: `pdf-lib` (manipulation) & `pdf.js` (rendering)
+* **Image Engine**: Native HTML5 Canvas API
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 💻 Running Locally
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+1. Clone the repository:
+   ```bash
+   git clone git@github.com:Subhan-Haider/Image-or-PDF-tool.git
+   cd Image-or-PDF-tool
+   ```
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+4. Build for production:
+   ```bash
+   npm run build
+   ```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 🤝 Contributing
+Contributions, issues, and feature requests are welcome! Feel free to check the issues page.
