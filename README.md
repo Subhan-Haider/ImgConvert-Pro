@@ -26,7 +26,12 @@
 * **Batch Support**: Drag and drop multiple images at once for rapid editing.
 
 ### 📄 Document Processing (PDF Tools)
-* **PDF Organizer**: Visually drag, drop, rotate, and delete pages from multiple PDFs at once, then compile them into a single merged document.
+* **Advanced Page Management**: Full control over your document's structure:
+  * **Merge PDFs**: Combine multiple documents into one.
+  * **Split & Extract**: Pull specific pages out of a PDF into a new document.
+  * **Reorder Pages**: Visually drag and drop pages into any order.
+  * **Rotate Pages**: Fix upside-down pages with a single click.
+  * **Delete Pages**: Remove unwanted pages instantly.
 * **PDF to Images**: Extract pages from your PDF documents into high-resolution (300 DPI equivalent) PNG or JPEG images.
 * **Images to PDF**: Compile multiple images into a standardized PDF format (`A4`, `Letter`, or `Fit-to-image`).
 * **Compress PDF**: Reduce PDF file sizes significantly with `Low`, `Medium`, `High`, or `Quality-Preserving` compression modes.
