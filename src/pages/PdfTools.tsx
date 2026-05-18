@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
-import { RotateCw, Trash2, ArrowLeft, ArrowRight, Layers, FileImage, Image as ImageIcon, Download, RefreshCw, Plus, Minus, HelpCircle, FileText, GripHorizontal, FileDown, Minimize2, CheckCircle2, Maximize2, Share2, Edit3, Type, PenTool, Highlighter, MousePointer2, Eraser, Undo, Redo, Save, X } from 'lucide-react';
+import { RotateCw, Trash2, ArrowLeft, ArrowRight, Layers, FileImage, Image as ImageIcon, Download, RefreshCw, Plus, Minus, Upload, HelpCircle, FileText, GripHorizontal, FileDown, Minimize2, CheckCircle2, Maximize2, Share2, Edit3, Type, PenTool, Highlighter, MousePointer2, Eraser, Undo, Redo, Save, X } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { useToast } from '../hooks/useToast';
@@ -2309,6 +2309,7 @@ function CanvasEditorModal({ page, index, onClose, onSave }: CanvasEditorModalPr
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sigCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sigFileInputRef = useRef<HTMLInputElement>(null);
 
   const [currentTool, setCurrentTool] = useState<EditTool>('draw');
   const [color, setColor] = useState('#3b82f6'); // Default primary blue
@@ -2325,6 +2326,8 @@ function CanvasEditorModal({ page, index, onClose, onSave }: CanvasEditorModalPr
   const [stampedImage, setStampedImage] = useState<string | null>(null);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [sigIsDrawing, setSigIsDrawing] = useState(false);
+  const [sigMode, setSigMode] = useState<'draw' | 'upload'>('draw');
+  const [uploadedSigImage, setUploadedSigImage] = useState<string | null>(null);
 
   // Text Tool Overlay State
   const [textInput, setTextInput] = useState<{ x: number; y: number; val: string } | null>(null);
@@ -2677,7 +2680,28 @@ function CanvasEditorModal({ page, index, onClose, onSave }: CanvasEditorModalPr
     }
   };
 
+  const handleSigImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setUploadedSigImage(event.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const insertSignature = () => {
+    if (sigMode === 'upload') {
+      if (!uploadedSigImage) return;
+      setStampedImage(uploadedSigImage);
+      setCurrentTool('image');
+      setShowSignaturePad(false);
+      return;
+    }
+
     const canvas = sigCanvasRef.current;
     if (!canvas) return;
 
@@ -2951,38 +2975,115 @@ function CanvasEditorModal({ page, index, onClose, onSave }: CanvasEditorModalPr
         {/* Floating Signature Canvas Dialog */}
         {showSignaturePad && (
           <div className="fixed inset-0 z-60 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-5 w-full max-w-md">
-              <div className="flex justify-between items-center mb-3">
-                <h4 className="text-sm font-semibold text-white">Draw your signature</h4>
-                <button onClick={() => setShowSignaturePad(false)} className="text-slate-400 hover:text-white">
+            <div className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-5 w-full max-w-md" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="text-sm font-semibold text-white">Create Digital Signature</h4>
+                <button onClick={() => setShowSignaturePad(false)} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/5">
                   <X size={16} />
                 </button>
               </div>
-              <div className="border border-white/15 rounded-xl bg-white overflow-hidden mb-4">
-                <canvas
-                  ref={sigCanvasRef}
-                  width={400}
-                  height={180}
-                  onMouseDown={handleSigMouseDown}
-                  onMouseMove={handleSigMouseMove}
-                  onMouseUp={() => setSigIsDrawing(false)}
-                  onMouseLeave={() => setSigIsDrawing(false)}
-                  className="w-full cursor-pencil bg-white"
-                />
+
+              {/* Signature Mode Tabs */}
+              <div className="flex bg-slate-950 p-1 rounded-xl mb-4 border border-white/5">
+                <button
+                  onClick={() => setSigMode('draw')}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                    sigMode === 'draw' ? 'bg-primary-500 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Draw Signature
+                </button>
+                <button
+                  onClick={() => setSigMode('upload')}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                    sigMode === 'upload' ? 'bg-primary-500 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Upload Image
+                </button>
               </div>
-              <div className="flex justify-between gap-3">
-                <button 
-                  onClick={clearSignature}
-                  className="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white bg-white/5 rounded-xl hover:bg-white/10 transition-colors"
-                >
-                  Clear Signature
-                </button>
-                <button 
-                  onClick={insertSignature}
-                  className="px-4 py-2 text-xs font-bold text-white bg-primary-500 hover:bg-primary-600 rounded-xl transition-colors"
-                >
-                  Stamp Signature
-                </button>
+
+              {/* Mode Contents */}
+              {sigMode === 'draw' ? (
+                <div className="border border-white/15 rounded-xl bg-white overflow-hidden mb-4">
+                  <canvas
+                    ref={sigCanvasRef}
+                    width={400}
+                    height={180}
+                    onMouseDown={handleSigMouseDown}
+                    onMouseMove={handleSigMouseMove}
+                    onMouseUp={() => setSigIsDrawing(false)}
+                    onMouseLeave={() => setSigIsDrawing(false)}
+                    className="w-full cursor-pencil bg-white"
+                  />
+                </div>
+              ) : (
+                <div className="mb-4">
+                  <input
+                    type="file"
+                    ref={sigFileInputRef}
+                    accept="image/*"
+                    onChange={handleSigImageUpload}
+                    className="hidden"
+                  />
+                  {!uploadedSigImage ? (
+                    <div
+                      onClick={() => sigFileInputRef.current?.click()}
+                      className="border-2 border-dashed border-white/20 hover:border-primary-500 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all bg-white/5 hover:bg-white/10 text-slate-300 min-h-[180px]"
+                    >
+                      <Upload size={24} className="text-slate-400 mb-2" />
+                      <span className="text-xs font-bold">Upload Signature Image</span>
+                      <span className="text-[10px] text-slate-500 mt-1">PNG, JPG, SVG supported (Transparent PNG recommended)</span>
+                    </div>
+                  ) : (
+                    <div className="border border-white/15 rounded-xl bg-white p-4 flex items-center justify-center relative min-h-[180px]">
+                      <img src={uploadedSigImage} className="max-h-[140px] object-contain" alt="Signature Upload" />
+                      <button
+                        onClick={() => setUploadedSigImage(null)}
+                        className="absolute top-2 right-2 p-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors shadow-lg"
+                        title="Remove signature image"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Modal Actions */}
+              <div className="flex justify-between gap-3 pt-2">
+                {sigMode === 'draw' ? (
+                  <>
+                    <button
+                      onClick={clearSignature}
+                      className="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white bg-white/5 rounded-xl hover:bg-white/10 transition-colors"
+                    >
+                      Clear Pad
+                    </button>
+                    <button
+                      onClick={insertSignature}
+                      className="px-4 py-2 text-xs font-bold text-white bg-primary-500 hover:bg-primary-600 rounded-xl transition-colors"
+                    >
+                      Stamp Signature
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => sigFileInputRef.current?.click()}
+                      className="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white bg-white/5 rounded-xl hover:bg-white/10 transition-colors"
+                    >
+                      {uploadedSigImage ? 'Choose Another' : 'Select Image'}
+                    </button>
+                    <button
+                      onClick={insertSignature}
+                      disabled={!uploadedSigImage}
+                      className="px-4 py-2 text-xs font-bold text-white bg-primary-500 hover:bg-primary-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-colors"
+                    >
+                      Stamp Signature
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
