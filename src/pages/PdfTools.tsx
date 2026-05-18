@@ -63,6 +63,9 @@ export default function PdfTools() {
   const [officeFileType, setOfficeFileType] = useState<'docx' | 'xlsx' | 'txt' | 'csv' | null>(null);
   const [officeFilename, setOfficeFilename] = useState('office_document');
 
+  // --- Grid View Zoom State ---
+  const [pageSizeMode, setPageSizeMode] = useState<'small' | 'medium' | 'large'>('medium');
+
   // --- Common Helpers ---
   const clearWorkspace = () => {
     setPdfPages([]);
@@ -777,20 +780,47 @@ export default function PdfTools() {
                   </Card>
                 ) : (
                   <Card>
-                    <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-4 mb-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/5 dark:border-white/5 pb-4 mb-4">
                       <h3 className="font-semibold text-slate-900 dark:text-white">
                         Document Page Organizer ({pdfPages.length} pages loaded)
                       </h3>
-                      <button 
-                        onClick={() => handlePdfUpload([])} 
-                        className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
-                      >
-                        <Trash2 size={12} /> Clear all
-                      </button>
+                      <div className="flex items-center gap-3">
+                        {/* Zoom Size Switcher */}
+                        <div className="flex items-center gap-1.5 bg-black/5 dark:bg-white/5 p-1 rounded-lg border border-black/10 dark:border-white/10 text-[10px] font-semibold">
+                          <span className="text-slate-400 px-1">Size:</span>
+                          {(['small', 'medium', 'large'] as const).map(mode => (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => setPageSizeMode(mode)}
+                              className={`px-2 py-0.5 rounded capitalize transition-all ${
+                                pageSizeMode === mode
+                                  ? 'bg-white dark:bg-surface-800 text-slate-900 dark:text-white shadow-sm'
+                                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                              }`}
+                            >
+                              {mode}
+                            </button>
+                          ))}
+                        </div>
+
+                        <button 
+                          onClick={() => handlePdfUpload([])} 
+                          className="text-xs text-red-450 hover:text-red-400 flex items-center gap-1"
+                        >
+                          <Trash2 size={12} /> Clear all
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Page Grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {/* Page Grid - Adaptive zoom */}
+                    <div className={`grid gap-4 ${
+                      pageSizeMode === 'small' 
+                        ? 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2' 
+                        : pageSizeMode === 'large'
+                        ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6'
+                        : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4'
+                    }`}>
                       {pdfPages.map((page, i) => (
                         <div 
                           key={page.id} 
@@ -964,19 +994,46 @@ export default function PdfTools() {
                   </Card>
                 ) : (
                   <Card>
-                    <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-4 mb-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/5 dark:border-white/5 pb-4 mb-4">
                       <h3 className="font-semibold text-slate-900 dark:text-white">
                         Images Workspace ({imagePages.length} images added)
                       </h3>
-                      <button 
-                        onClick={() => { setImagePages([]); }} 
-                        className="text-xs text-red-400 hover:text-red-300"
-                      >
-                        Clear all
-                      </button>
+                      <div className="flex items-center gap-3">
+                        {/* Zoom Size Switcher */}
+                        <div className="flex items-center gap-1.5 bg-black/5 dark:bg-white/5 p-1 rounded-lg border border-black/10 dark:border-white/10 text-[10px] font-semibold">
+                          <span className="text-slate-400 px-1">Size:</span>
+                          {(['small', 'medium', 'large'] as const).map(mode => (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => setPageSizeMode(mode)}
+                              className={`px-2 py-0.5 rounded capitalize transition-all ${
+                                pageSizeMode === mode
+                                  ? 'bg-white dark:bg-surface-800 text-slate-900 dark:text-white shadow-sm'
+                                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                              }`}
+                            >
+                              {mode}
+                            </button>
+                          ))}
+                        </div>
+
+                        <button 
+                          onClick={() => { setImagePages([]); }} 
+                          className="text-xs text-red-450 hover:text-red-400"
+                        >
+                          Clear all
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    <div className={`grid gap-4 ${
+                      pageSizeMode === 'small' 
+                        ? 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2' 
+                        : pageSizeMode === 'large'
+                        ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6'
+                        : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4'
+                    }`}>
                       {imagePages.map((item, i) => (
                         <div key={item.id} className="relative rounded-xl border border-black/10 dark:border-white/10 p-2 bg-black/5 dark:bg-white/5 flex flex-col group">
                           <div className="absolute top-3 left-3 z-10 px-2 py-0.5 rounded-full bg-slate-900/80 text-white text-xs font-semibold">
