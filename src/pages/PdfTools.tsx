@@ -23,7 +23,7 @@ interface ImagePageItem {
   preview: string;
 }
 
-type ActiveTab = 'editor' | 'basic-editor' | 'to-images' | 'from-images' | 'office-to-pdf' | 'compress';
+type ActiveTab = 'editor' | 'to-images' | 'from-images' | 'office-to-pdf' | 'compress';
 
 export default function PdfTools() {
   const { toasts, addToast, removeToast } = useToast();
@@ -1022,11 +1022,10 @@ export default function PdfTools() {
         {/* Tab Switcher */}
         <div className="flex justify-center mb-8 px-2">
           <div className="flex flex-wrap sm:flex-nowrap justify-center p-1 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl backdrop-blur-xl gap-1 sm:gap-0 w-full max-w-3xl">
-            {(['editor', 'basic-editor', 'to-images', 'from-images', 'compress', 'office-to-pdf'] as const).map(tab => {
+            {(['editor', 'to-images', 'from-images', 'compress', 'office-to-pdf'] as const).map(tab => {
               const active = activeTab === tab;
               const labels = {
                 'editor': { text: 'Page Management', mobileText: 'Manage', icon: Layers },
-                'basic-editor': { text: 'Basic Editor', mobileText: 'Editor', icon: Edit3 },
                 'to-images': { text: 'PDF to Images', mobileText: 'PDF to Img', icon: FileImage },
                 'from-images': { text: 'Images to PDF', mobileText: 'Img to PDF', icon: ImageIcon },
                 'compress': { text: 'Compress PDF', mobileText: 'Compress', icon: FileDown },
@@ -1298,36 +1297,6 @@ export default function PdfTools() {
               </>
             )}
 
-            {/* Split Page X: Basic Editor (Coming Soon) */}
-            {activeTab === 'basic-editor' && (
-              <Card className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-black/10 dark:border-white/20">
-                <div className="w-16 h-16 rounded-2xl bg-black/5 dark:bg-white/10 flex items-center justify-center text-primary-400 mb-6">
-                  <Edit3 size={32} />
-                </div>
-                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Basic Editor</h3>
-                <p className="text-base text-slate-600 dark:text-slate-400 max-w-md mb-8">
-                  A full-featured interactive PDF annotation and drawing suite.
-                </p>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 text-sm text-slate-700 dark:text-slate-300 w-full max-w-3xl">
-                  <div className="flex items-center gap-3 bg-black/5 dark:bg-white/5 p-4 rounded-xl font-medium"><Type size={18} className="text-primary-500"/> Add text</div>
-                  <div className="flex items-center gap-3 bg-black/5 dark:bg-white/5 p-4 rounded-xl font-medium"><ImageIcon size={18} className="text-primary-500"/> Add images</div>
-                  <div className="flex items-center gap-3 bg-black/5 dark:bg-white/5 p-4 rounded-xl font-medium"><PenTool size={18} className="text-primary-500"/> Draw tool</div>
-                  <div className="flex items-center gap-3 bg-black/5 dark:bg-white/5 p-4 rounded-xl font-medium"><Highlighter size={18} className="text-primary-500"/> Highlight text</div>
-                  <div className="flex items-center gap-3 bg-black/5 dark:bg-white/5 p-4 rounded-xl font-medium"><MousePointer2 size={18} className="text-primary-500"/> Add shapes/arrows</div>
-                  <div className="flex items-center gap-3 bg-black/5 dark:bg-white/5 p-4 rounded-xl font-medium"><Edit3 size={18} className="text-primary-500"/> Add signature</div>
-                  <div className="flex items-center gap-3 bg-black/5 dark:bg-white/5 p-4 rounded-xl font-medium"><Eraser size={18} className="text-primary-500"/> Whiteout/erase</div>
-                </div>
-
-                <div className="mt-8 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
-                  <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                  </span>
-                  Coming Soon
-                </div>
-              </Card>
-            )}
 
             {/* Split Page 2: PDF to Images */}
             {activeTab === 'to-images' && (
