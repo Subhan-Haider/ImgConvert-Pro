@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect } from 'react';
-import { RotateCw, Trash2, ArrowLeft, ArrowRight, Layers, FileImage, Image as ImageIcon, Download, RefreshCw, Plus, HelpCircle, FileText, GripHorizontal, FileDown, Minimize2, CheckCircle2, Maximize2 } from 'lucide-react';
+import { RotateCw, Trash2, ArrowLeft, ArrowRight, Layers, FileImage, Image as ImageIcon, Download, RefreshCw, Plus, HelpCircle, FileText, GripHorizontal, FileDown, Minimize2, CheckCircle2, Maximize2, Share2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { useToast } from '../hooks/useToast';
@@ -137,6 +137,32 @@ export default function PdfTools() {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const handleShareFile = async (url: string, filename: string, mimeType: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const shareFile = new File([blob], filename, { type: mimeType });
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [shareFile] })) {
+        await navigator.share({
+          files: [shareFile],
+          title: filename,
+          text: `Check out this processed file: ${filename}`
+        });
+        notify('Native share dialog triggered successfully ✓', 'success');
+      } else {
+        // High-fidelity fallback for unsupported clients: Copy current page URL & notify
+        await navigator.clipboard.writeText(window.location.href);
+        notify('Native sharing not supported. URL copied to clipboard!', 'info');
+      }
+    } catch (err: any) {
+      // Don't show abort errors (user cancelled share dialog)
+      if (err.name !== 'AbortError') {
+        notify(`Sharing failed: ${err.message}`, 'error');
+      }
+    }
   };
 
   const handleCompressFileUpload = (file: File) => {
@@ -1249,11 +1275,22 @@ export default function PdfTools() {
                           <div className="aspect-[3/4] rounded-lg overflow-hidden bg-white/20">
                             <img src={page.thumbnail} alt={`Page ${page.pageNum}`} className="w-full h-full object-cover" />
                           </div>
-                          <a href={page.thumbnail} download={`page_${page.pageNum}.${pdfToImgFormat}`} className="mt-2">
-                            <Button size="sm" className="w-full text-xs py-1.5 flex items-center justify-center gap-1">
-                              <Download size={12} /> Download
+                          <div className="flex gap-1.5 mt-2">
+                            <a href={page.thumbnail} download={`page_${page.pageNum}.${pdfToImgFormat}`} className="flex-1">
+                              <Button size="sm" className="w-full text-[10px] py-1.5 flex items-center justify-center gap-1">
+                                <Download size={10} /> Download
+                              </Button>
+                            </a>
+                            <Button 
+                              size="sm" 
+                              variant="secondary" 
+                              onClick={() => handleShareFile(page.thumbnail, `page_${page.pageNum}.${pdfToImgFormat}`, `image/${pdfToImgFormat}`)}
+                              className="text-[10px] py-1.5 flex items-center justify-center gap-1 px-2 border-black/10 dark:border-white/10"
+                              title="Share Page Image"
+                            >
+                              <Share2 size={10} /> Share
                             </Button>
-                          </a>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1522,13 +1559,20 @@ export default function PdfTools() {
                           <a 
                             href={compressResult.downloadUrl}
                             download={compressResult.filename}
-                            className="btn-base bg-primary-500 hover:bg-primary-600 text-white px-6 py-2.5 rounded-xl font-medium inline-flex items-center gap-2 shadow-lg hover:shadow-primary-500/25 transition-all"
+                            className="btn-base bg-primary-500 hover:bg-primary-600 text-white px-6 py-2.5 rounded-xl font-medium inline-flex items-center gap-2 shadow-lg hover:shadow-primary-500/25 transition-all flex-1 justify-center"
                           >
                             <Download size={16} /> Download PDF
                           </a>
                           <button 
+                            onClick={() => handleShareFile(compressResult.downloadUrl, compressResult.filename, 'application/pdf')}
+                            className="btn-base bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-medium inline-flex items-center gap-2 shadow-lg hover:shadow-emerald-500/25 transition-all flex-1 justify-center"
+                            title="Share File to Mobile/Desktop Apps"
+                          >
+                            <Share2 size={16} /> Share PDF
+                          </button>
+                          <button 
                             onClick={() => { setCompressFile(null); setCompressResult(null); setCompressProgress(null); }}
-                            className="btn-base bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 px-6 py-2.5 rounded-xl font-medium"
+                            className="btn-base bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 px-6 py-2.5 rounded-xl font-medium flex-1 justify-center"
                           >
                             Compress Another
                           </button>
