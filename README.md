@@ -152,3 +152,5 @@ Make sure you have [Node.js](https://nodejs.org/) installed on your machine.
 **Copyright (c) 2024 Subhan Haider. All Rights Reserved.**
 
 This is proprietary software. You may view and fork this repository for personal/educational evaluation, but commercial use, unauthorized distribution, or creating a competing product from this source code is strictly prohibited. See the [LICENSE](LICENSE) file for more details.
+
+# 3-img-exp
