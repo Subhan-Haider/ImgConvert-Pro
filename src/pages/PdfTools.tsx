@@ -937,7 +937,7 @@ export default function PdfTools() {
                   key={tab}
                   type="button"
                   onClick={() => { setActiveTab(tab); clearWorkspace(); }}
-                  className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-300 ${
+                  className={`flex-1 flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-300 ${
                     active 
                       ? 'bg-white dark:bg-surface-800 text-slate-900 dark:text-white shadow-md' 
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
