@@ -17,8 +17,8 @@ function App() {
     <>
       <ScrollToTop />
       <Routes>
-        <Route index element={<Home />} />
         <Route path="/" element={<MainLayout />}>
+          <Route index element={<Home />} />
           <Route path="converter" element={<Converter />} />
           <Route path="pdf-tools" element={<PdfTools />} />
           <Route path="features" element={<Features />} />

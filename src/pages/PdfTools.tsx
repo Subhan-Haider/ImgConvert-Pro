@@ -2332,8 +2332,17 @@ function CanvasEditorModal({ page, index, allPages, onClose, onSave, onSaveAll }
   }, [stampScale]);
 
   // Text Tool Overlay State
-  const [textInput, setTextInput] = useState<{ x: number; y: number; val: string } | null>(null);
+  const [textInput, setTextInput] = useState<{ x: number; y: number; val: string; fontSize: number } | null>(null);
+  const textInputRef = useRef<HTMLTextAreaElement | null>(null);
   const [canvasDimensions, setCanvasDimensions] = useState({ width: 600, height: 800 });
+
+  useEffect(() => {
+    if (!textInput) return;
+    requestAnimationFrame(() => {
+      textInputRef.current?.focus();
+      textInputRef.current?.select();
+    });
+  }, [textInput?.x, textInput?.y]);
 
   // Zoom State
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -2509,7 +2518,7 @@ function CanvasEditorModal({ page, index, allPages, onClose, onSave, onSaveAll }
     if (textInput) {
       finalizeText();
       if (currentTool === 'text') {
-        setTextInput({ x, y, val: '' });
+        setTextInput({ x, y, val: '', fontSize: Math.max(14, lineWidth * 2.25) });
       }
       return;
     }
@@ -2551,7 +2560,7 @@ function CanvasEditorModal({ page, index, allPages, onClose, onSave, onSaveAll }
     }
 
     if (currentTool === 'text') {
-      setTextInput({ x, y, val: '' });
+      setTextInput({ x, y, val: '', fontSize: Math.max(14, lineWidth * 2.25) });
       return;
     }
 
@@ -2806,10 +2815,35 @@ function CanvasEditorModal({ page, index, allPages, onClose, onSave, onSaveAll }
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext('2d');
       if (canvas && ctx) {
-        ctx.font = `${lineWidth * 2.5 * getVisualScale()}px Inter, system-ui, sans-serif`;
+        const fontSize = textInput.fontSize * getVisualScale();
+        const lineHeight = fontSize * 1.28;
+        const maxWidth = Math.max(80, canvas.width - textInput.x - 24);
+        const paragraphs = textInput.val.split('\n');
+        const lines: string[] = [];
+        ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
+
+        paragraphs.forEach((paragraph) => {
+          const words = paragraph.split(' ');
+          let line = '';
+
+          words.forEach((word) => {
+            const testLine = line ? `${line} ${word}` : word;
+            if (ctx.measureText(testLine).width > maxWidth && line) {
+              lines.push(line);
+              line = word;
+            } else {
+              line = testLine;
+            }
+          });
+
+          lines.push(line);
+        });
+
         ctx.fillStyle = color;
         ctx.textBaseline = 'top';
-        ctx.fillText(textInput.val, textInput.x, textInput.y);
+        lines.forEach((line, index) => {
+          ctx.fillText(line, textInput.x, textInput.y + index * lineHeight, maxWidth);
+        });
         pushStateToHistory();
       }
     }
@@ -3449,29 +3483,85 @@ function CanvasEditorModal({ page, index, allPages, onClose, onSave, onSaveAll }
                 {/* Text Tool Absolute Overlay Input */}
                 {textInput && (
                   <div
-                    className="absolute z-40 bg-transparent"
+                    className="absolute z-50 w-64 max-w-[min(16rem,calc(100%-1rem))]"
                     style={{
                       left: `${(textInput.x / canvasDimensions.width) * 100}%`,
                       top: `${(textInput.y / canvasDimensions.height) * 100}%`,
+                      transform: 'translateY(-8px)',
                     }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onMouseMove={(e) => e.stopPropagation()}
+                    onMouseUp={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onTouchMove={(e) => e.stopPropagation()}
+                    onTouchEnd={(e) => e.stopPropagation()}
                   >
-                    <input
+                    <textarea
+                      ref={textInputRef}
                       autoFocus
-                      type="text"
                       value={textInput.val}
                       onChange={e => setTextInput(prev => prev ? { ...prev, val: e.target.value } : null)}
                       onKeyDown={e => {
                         e.stopPropagation();
-                        if (e.key === 'Enter') finalizeText();
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          finalizeText();
+                        }
                         if (e.key === 'Escape') setTextInput(null);
                       }}
                       onKeyPress={e => e.stopPropagation()}
                       onKeyUp={e => e.stopPropagation()}
-                      onBlur={finalizeText}
-                      placeholder="Type here..."
-                      className="bg-slate-900 text-white border border-primary-500 rounded px-2 py-1 text-sm shadow-xl focus:outline-none focus:ring-2 focus:ring-primary-500 font-semibold translate-y-[-10%]"
-                      style={{ color: color, fontSize: `min(18px, ${lineWidth * 1.8}px)` }}
+                      placeholder="Type text..."
+                      rows={3}
+                      className="block min-h-20 w-full resize-none rounded-xl border-2 border-dashed border-primary-500 bg-white px-3 py-2 font-semibold text-slate-900 shadow-2xl outline-none ring-4 ring-primary-500/10 focus:border-primary-400"
+                      style={{ color, fontSize: `${textInput.fontSize}px`, lineHeight: 1.25 }}
                     />
+                    <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-white/20 bg-slate-900 px-2 py-1.5 shadow-2xl">
+                      <span className="truncate text-[10px] font-semibold text-slate-300">Type text, Enter to place</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTextInput(prev => prev ? { ...prev, fontSize: Math.max(10, prev.fontSize - 1) } : null);
+                          }}
+                          className="rounded bg-white/10 p-1 text-white transition hover:bg-white/20"
+                          title="Decrease text size"
+                        >
+                          <Minus size={11} />
+                        </button>
+                        <span className="w-8 text-center text-[10px] font-bold text-primary-300">{Math.round(textInput.fontSize)}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTextInput(prev => prev ? { ...prev, fontSize: Math.min(48, prev.fontSize + 1) } : null);
+                          }}
+                          className="rounded bg-white/10 p-1 text-white transition hover:bg-white/20"
+                          title="Increase text size"
+                        >
+                          <Plus size={11} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            finalizeText();
+                          }}
+                          className="ml-1 rounded-lg bg-emerald-500 p-1 text-white shadow-md transition hover:bg-emerald-600"
+                          title="Place text"
+                        >
+                          <Check size={11} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTextInput(null);
+                          }}
+                          className="rounded-lg bg-red-500 p-1 text-white shadow-md transition hover:bg-red-600"
+                          title="Cancel text"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
 
