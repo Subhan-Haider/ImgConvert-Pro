@@ -2298,6 +2298,7 @@ function CanvasEditorModal({ page, index, allPages, onClose, onSave, onSaveAll }
   const [currentTool, setCurrentTool] = useState<EditTool>('draw');
   const [color, setColor] = useState('#3b82f6'); // Default primary blue
   const [lineWidth, setLineWidth] = useState(8);
+  const [highlightOpacity, setHighlightOpacity] = useState(0.45); // Default 0.45
   const [shapeType, setShapeType] = useState<'rect' | 'circle' | 'arrow'>('rect');
 
   // Drawing states
@@ -2573,7 +2574,7 @@ function CanvasEditorModal({ page, index, allPages, onClose, onSave, onSaveAll }
         ctx.strokeStyle = '#ffffff';
         ctx.globalCompositeOperation = 'source-over';
       } else if (currentTool === 'highlight') {
-        ctx.strokeStyle = hexToRgba(color, 0.45);
+        ctx.strokeStyle = hexToRgba(color, highlightOpacity);
         ctx.globalCompositeOperation = 'source-over';
       } else {
         ctx.strokeStyle = color;
@@ -3339,6 +3340,25 @@ function CanvasEditorModal({ page, index, allPages, onClose, onSave, onSaveAll }
                 className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary-500"
               />
             </div>
+
+            {/* Highlight Opacity Slider */}
+            {currentTool === 'highlight' && (
+              <div className="space-y-1.5 w-full border-t border-white/5 pt-3 hidden md:block">
+                <div className="flex justify-between text-[10px] text-slate-500 font-semibold">
+                  <span>Highlight Darkness</span>
+                  <span>{Math.round(highlightOpacity * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0.1}
+                  max={1.0}
+                  step={0.05}
+                  value={highlightOpacity}
+                  onChange={e => setHighlightOpacity(Number(e.target.value))}
+                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary-500"
+                />
+              </div>
+            )}
 
             {/* Stamp Image scale adjustment slider */}
             {stampedImage && (
