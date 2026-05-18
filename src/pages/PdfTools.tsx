@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect } from 'react';
-import { RotateCw, Trash2, ArrowLeft, ArrowRight, Layers, FileImage, Image as ImageIcon, Download, RefreshCw, Plus, HelpCircle, FileText } from 'lucide-react';
+import { RotateCw, Trash2, ArrowLeft, ArrowRight, Layers, FileImage, Image as ImageIcon, Download, RefreshCw, Plus, HelpCircle, FileText, GripHorizontal } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { useToast } from '../hooks/useToast';
@@ -939,7 +939,10 @@ export default function PdfTools() {
                             >
                               <ArrowLeft size={14} />
                             </button>
-                            <span className="text-[10px] text-slate-600 dark:text-slate-400">Position</span>
+                            <div className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-primary-500 select-none">
+                              <GripHorizontal size={10} className="text-slate-400 animate-pulse" />
+                              <span>Drag to move</span>
+                            </div>
                             <button 
                               disabled={i === pdfPages.length - 1} 
                               onClick={() => movePage(i, 'right')}
@@ -1143,7 +1146,10 @@ export default function PdfTools() {
                             >
                               <ArrowLeft size={14} />
                             </button>
-                            <span className="text-[10px] text-slate-600 dark:text-slate-400 font-medium">Order</span>
+                            <div className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-primary-500 select-none">
+                              <GripHorizontal size={10} className="text-slate-400 animate-pulse" />
+                              <span>Drag to move</span>
+                            </div>
                             <button 
                               disabled={i === imagePages.length - 1} 
                               onClick={() => moveImagePage(i, 'right')}
