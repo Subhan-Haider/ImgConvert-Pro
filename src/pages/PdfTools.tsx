@@ -2522,16 +2522,19 @@ function CanvasEditorModal({ page, index, allPages, onClose, onSave, onSaveAll }
 
   // Main Canvas Event Handlers
   const handleStartDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (textInput) {
-      finalizeText();
-      return;
-    }
-
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
 
     const { x, y } = getCoordinates(e);
+
+    if (textInput) {
+      finalizeText();
+      if (currentTool === 'text') {
+        setTextInput({ x, y, val: '' });
+      }
+      return;
+    }
 
     if (currentTool === 'image') {
       if (stampedImage) {
@@ -3247,43 +3250,45 @@ function CanvasEditorModal({ page, index, allPages, onClose, onSave, onSaveAll }
               className="relative border border-white/10 rounded-xl shadow-2xl bg-white max-h-[68vh] aspect-[3/4] flex items-center justify-center overflow-visible transition-transform duration-100 ease-out origin-center"
               style={{ transform: `scale(${zoomLevel})` }}
             >
-              <canvas
-                ref={canvasRef}
-                onMouseDown={handleStartDraw}
-                onMouseMove={handleMovingDraw}
-                onMouseUp={handleEndDraw}
-                onMouseLeave={handleEndDraw}
-                onTouchStart={handleStartDraw}
-                onTouchMove={handleMovingDraw}
-                onTouchEnd={handleEndDraw}
-                className="max-h-[67vh] max-w-full object-contain cursor-crosshair rounded-lg"
-              />
+              <div className="relative max-h-[67vh] max-w-full">
+                <canvas
+                  ref={canvasRef}
+                  onMouseDown={handleStartDraw}
+                  onMouseMove={handleMovingDraw}
+                  onMouseUp={handleEndDraw}
+                  onMouseLeave={handleEndDraw}
+                  onTouchStart={handleStartDraw}
+                  onTouchMove={handleMovingDraw}
+                  onTouchEnd={handleEndDraw}
+                  className="max-h-[67vh] max-w-full object-contain cursor-crosshair rounded-lg block"
+                />
 
-              {/* Text Tool Absolute Overlay Input */}
-              {textInput && (
-                <div 
-                  className="absolute z-40 bg-transparent flex items-center justify-center"
-                  style={{
-                    left: `${(textInput.x / canvasDimensions.width) * 100}%`,
-                    top: `${(textInput.y / canvasDimensions.height) * 100}%`,
-                  }}
-                >
-                  <input
-                    autoFocus
-                    type="text"
-                    value={textInput.val}
-                    onChange={e => setTextInput(prev => prev ? { ...prev, val: e.target.value } : null)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') finalizeText();
-                      if (e.key === 'Escape') setTextInput(null);
+                {/* Text Tool Absolute Overlay Input */}
+                {textInput && (
+                  <div 
+                    className="absolute z-40 bg-transparent"
+                    style={{
+                      left: `${(textInput.x / canvasDimensions.width) * 100}%`,
+                      top: `${(textInput.y / canvasDimensions.height) * 100}%`,
                     }}
-                    onBlur={finalizeText}
-                    placeholder="Type here..."
-                    className="bg-slate-900 text-white border border-primary-500 rounded px-2 py-1 text-sm shadow-xl focus:outline-none focus:ring-2 focus:ring-primary-500 font-semibold"
-                    style={{ color: color, fontSize: `min(18px, ${lineWidth * 1.8}px)` }}
-                  />
-                </div>
-              )}
+                  >
+                    <input
+                      autoFocus
+                      type="text"
+                      value={textInput.val}
+                      onChange={e => setTextInput(prev => prev ? { ...prev, val: e.target.value } : null)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') finalizeText();
+                        if (e.key === 'Escape') setTextInput(null);
+                      }}
+                      onBlur={finalizeText}
+                      placeholder="Type here..."
+                      className="bg-slate-900 text-white border border-primary-500 rounded px-2 py-1 text-sm shadow-xl focus:outline-none focus:ring-2 focus:ring-primary-500 font-semibold translate-y-[-10%]"
+                      style={{ color: color, fontSize: `min(18px, ${lineWidth * 1.8}px)` }}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
