@@ -32,6 +32,14 @@
   * **Reorder Pages**: Visually drag and drop pages into any order.
   * **Rotate Pages**: Fix upside-down pages with a single click.
   * **Delete Pages**: Remove unwanted pages instantly.
+* **Basic Editor (Upcoming)**:
+  * **Add text**: Type directly onto the document.
+  * **Add images**: Stamp images or logos onto pages.
+  * **Draw tool**: Freehand drawing and markup.
+  * **Highlight text**: Emphasize important sections.
+  * **Add shapes/arrows**: Draw rectangles, circles, and directional arrows.
+  * **Add signature**: Sign documents digitally.
+  * **Whiteout/erase**: Mask out sensitive content visually.
 * **PDF to Images**: Extract pages from your PDF documents into high-resolution (300 DPI equivalent) PNG or JPEG images.
 * **Images to PDF**: Compile multiple images into a standardized PDF format (`A4`, `Letter`, or `Fit-to-image`).
 * **Compress PDF**: Reduce PDF file sizes significantly with `Low`, `Medium`, `High`, or `Quality-Preserving` compression modes.
@@ -86,12 +94,19 @@ Image-or-PDF-tool/
 
 ## 🗺️ Roadmap & Upcoming Features
 
+- [ ] **Basic PDF Editor (Interactive Canvas)**:
+  - [ ] **Add text**: Type directly onto the document.
+  - [ ] **Add images**: Stamp images or logos onto pages.
+  - [ ] **Draw tool**: Freehand drawing and markup.
+  - [ ] **Highlight text**: Emphasize important sections.
+  - [ ] **Add shapes/arrows**: Draw rectangles, circles, and directional arrows.
+  - [ ] **Add signature**: Sign documents digitally.
+  - [ ] **Whiteout/erase**: Mask out sensitive content visually.
 - [ ] **Dark Mode Toggle**: Persistent system-preference synchronized theme switcher.
 - [ ] **PDF Password Protection**: Encrypt and decrypt PDFs directly in the browser.
 - [ ] **OCR (Text Extraction)**: Pull selectable text out of flat images using client-side WebAssembly models.
 - [ ] **Bulk Watermarking**: Apply custom image/text watermarks across hundreds of pages instantly.
 - [ ] **Image Filters & Effects**: Adjust brightness, contrast, saturation, and apply professional LUT filters locally.
-- [ ] **Digital Signatures**: Sign PDF documents cryptographically directly in your browser.
 - [ ] **EXIF Metadata Editor**: View, strip, or modify hidden EXIF metadata (GPS, camera info) from images.
 - [ ] **AI Background Removal**: Automatically remove image backgrounds using local ONNX machine learning models.
 - [ ] **PDF Redaction**: Securely black out sensitive information and burn it into the document so it cannot be recovered.
