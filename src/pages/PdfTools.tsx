@@ -2284,8 +2284,14 @@ export default function PdfTools() {
         <CanvasEditorModal 
           page={activeEditPage.page}
           index={activeEditPage.index}
+          allPages={pdfPages}
           onClose={closeEditorModal}
           onSave={handleSavePageEdits}
+          onSaveAll={(updatedPages) => {
+            setPdfPages(updatedPages);
+            setActiveEditPage(null);
+            notify('Edits applied to all pages successfully ✓', 'success');
+          }}
         />
       )}
     </div>
@@ -2299,13 +2305,15 @@ export default function PdfTools() {
 interface CanvasEditorModalProps {
   page: PdfPageItem;
   index: number;
+  allPages: PdfPageItem[];
   onClose: () => void;
   onSave: (editedFile: File, editedThumbnail: string) => void;
+  onSaveAll: (updatedPages: PdfPageItem[]) => void;
 }
 
 type EditTool = 'draw' | 'highlight' | 'text' | 'shape' | 'signature' | 'image' | 'erase';
 
-function CanvasEditorModal({ page, index, onClose, onSave }: CanvasEditorModalProps) {
+function CanvasEditorModal({ page, index, allPages, onClose, onSave, onSaveAll }: CanvasEditorModalProps) {
   const { addToast } = useToast();
   const notify = useCallback((msg: string, type?: 'success' | 'error' | 'info') => addToast(msg, type), [addToast]);
 
@@ -2760,6 +2768,138 @@ function CanvasEditorModal({ page, index, onClose, onSave }: CanvasEditorModalPr
     notify('Downloaded high-res edited page! ✓', 'success');
   };
 
+  // Extract only added annotations (transparent overlay) by comparing current pixels to initial background
+  const getAnnotationsOnlyDataURL = (): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return resolve(null);
+      
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      if (!tempCtx) return resolve(null);
+
+      const baseImg = new Image();
+      baseImg.src = history[0]; // Initial background unedited thumbnail
+      baseImg.onload = () => {
+        // Draw initial unedited background to temp canvas
+        tempCtx.drawImage(baseImg, 0, 0);
+        const baseData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        // Get current annotated canvas image data
+        const currentCtx = canvas.getContext('2d');
+        if (!currentCtx) return resolve(null);
+        const currentData = currentCtx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        // Create a transparent container to construct difference pixels
+        const diffData = tempCtx.createImageData(canvas.width, canvas.height);
+        
+        for (let i = 0; i < currentData.data.length; i += 4) {
+          const r1 = baseData.data[i];
+          const g1 = baseData.data[i+1];
+          const b1 = baseData.data[i+2];
+          const a1 = baseData.data[i+3];
+          
+          const r2 = currentData.data[i];
+          const g2 = currentData.data[i+1];
+          const b2 = currentData.data[i+2];
+          const a2 = currentData.data[i+3];
+          
+          // Identify modified pixels (with subtle tolerance margin)
+          if (Math.abs(r1 - r2) > 2 || Math.abs(g1 - g2) > 2 || Math.abs(b1 - b2) > 2 || Math.abs(a1 - a2) > 2) {
+            diffData.data[i] = r2;
+            diffData.data[i+1] = g2;
+            diffData.data[i+2] = b2;
+            diffData.data[i+3] = a2;
+          } else {
+            diffData.data[i] = 0;
+            diffData.data[i+1] = 0;
+            diffData.data[i+2] = 0;
+            diffData.data[i+3] = 0;
+          }
+        }
+        
+        tempCtx.putImageData(diffData, 0, 0);
+        resolve(tempCanvas.toDataURL('image/png'));
+      };
+      baseImg.onerror = () => resolve(null);
+    });
+  };
+
+  // Asynchronously composites current overlay annotations to all uploaded PDF pages
+  const handleApplyToAllPages = async () => {
+    const annotationsDataUrl = await getAnnotationsOnlyDataURL();
+    if (!annotationsDataUrl) {
+      notify('No edits or drawings found to apply!', 'error');
+      return;
+    }
+
+    // Load transparent overlay image
+    const annImg = new Image();
+    annImg.src = annotationsDataUrl;
+    await new Promise((resolve) => {
+      annImg.onload = resolve;
+    });
+
+    const updatedPages: PdfPageItem[] = [...allPages];
+    notify('Applying annotations to all pages... Please wait.', 'info');
+
+    const promises = allPages.map(async (p, idx) => {
+      if (idx === index) {
+        // Current active page: directly copy canvas state losslessly
+        return new Promise<void>((resolve) => {
+          const canvas = canvasRef.current;
+          if (!canvas) return resolve();
+          canvas.toBlob((blob) => {
+            if (blob) {
+              updatedPages[idx] = {
+                ...p,
+                file: new File([blob], p.fileName, { type: 'image/png' }),
+                thumbnail: canvas.toDataURL('image/png')
+              };
+            }
+            resolve();
+          }, 'image/png');
+        });
+      } else {
+        // All other pages: load background, composite overlay, export blob
+        return new Promise<void>((resolve) => {
+          const baseImg = new Image();
+          baseImg.src = p.thumbnail;
+          baseImg.onload = () => {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = baseImg.width || 600;
+            tempCanvas.height = baseImg.height || 800;
+            const tempCtx = tempCanvas.getContext('2d');
+            if (!tempCtx) return resolve();
+
+            // Draw target page original contents
+            tempCtx.drawImage(baseImg, 0, 0);
+
+            // Stamp transparent overlay (scales automatically to fit the target page dimensions)
+            tempCtx.drawImage(annImg, 0, 0, tempCanvas.width, tempCanvas.height);
+
+            tempCanvas.toBlob((blob) => {
+              if (blob) {
+                updatedPages[idx] = {
+                  ...p,
+                  file: new File([blob], p.fileName, { type: 'image/png' }),
+                  thumbnail: tempCanvas.toDataURL('image/png')
+                };
+              }
+              resolve();
+            }, 'image/png');
+          };
+          baseImg.onerror = () => resolve();
+        });
+      }
+    });
+
+    await Promise.all(promises);
+    onSaveAll(updatedPages);
+  };
+
   // Save finalized canvas back as standard File PNG object
   const handleFinalSave = () => {
     const canvas = canvasRef.current;
@@ -3192,6 +3332,13 @@ function CanvasEditorModal({ page, index, onClose, onSave }: CanvasEditorModalPr
               title="Download edited page instantly as a PNG image"
             >
               <Download size={14} /> Instant Download
+            </button>
+            <button 
+              onClick={handleApplyToAllPages}
+              className="px-4 py-2 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-blue-500/20 transition-all"
+              title="Composite current page's edits/drawings onto ALL upload pages"
+            >
+              <Layers size={14} /> Apply to All Pages
             </button>
             <button 
               onClick={onClose}
