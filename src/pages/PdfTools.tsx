@@ -2306,6 +2306,9 @@ interface CanvasEditorModalProps {
 type EditTool = 'draw' | 'highlight' | 'text' | 'shape' | 'signature' | 'image' | 'erase';
 
 function CanvasEditorModal({ page, index, onClose, onSave }: CanvasEditorModalProps) {
+  const { addToast } = useToast();
+  const notify = useCallback((msg: string, type?: 'success' | 'error' | 'info') => addToast(msg, type), [addToast]);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sigCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -2328,6 +2331,7 @@ function CanvasEditorModal({ page, index, onClose, onSave }: CanvasEditorModalPr
   const [sigIsDrawing, setSigIsDrawing] = useState(false);
   const [sigMode, setSigMode] = useState<'draw' | 'upload'>('draw');
   const [uploadedSigImage, setUploadedSigImage] = useState<string | null>(null);
+  const [stampScale, setStampScale] = useState(0.35); // Default scale for signatures and custom image stamps
 
   // Text Tool Overlay State
   const [textInput, setTextInput] = useState<{ x: number; y: number; val: string } | null>(null);
@@ -2503,14 +2507,12 @@ function CanvasEditorModal({ page, index, onClose, onSave }: CanvasEditorModalPr
 
     if (currentTool === 'image') {
       if (stampedImage) {
-        // Stamp custom image or signature at clicked location
+        // Stamp custom image or signature at clicked location with adjustable stampScale
         const img = new Image();
         img.src = stampedImage;
         img.onload = () => {
-          const maxWidth = canvas.width * 0.35;
-          const scale = Math.min(1, maxWidth / img.width);
-          const w = img.width * scale;
-          const h = img.height * scale;
+          const w = img.width * stampScale;
+          const h = img.height * stampScale;
           ctx.drawImage(img, x - w / 2, y - h / 2, w, h);
           pushStateToHistory();
         };
@@ -2720,6 +2722,44 @@ function CanvasEditorModal({ page, index, onClose, onSave }: CanvasEditorModalPr
     setShowSignaturePad(false);
   };
 
+  // Rotate underlay canvas 90 degrees clockwise
+  const rotateCanvasClockwise = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.height;
+    tempCanvas.height = canvas.width;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return;
+
+    // Rotate 90 deg clockwise
+    tempCtx.translate(tempCanvas.width / 2, tempCanvas.height / 2);
+    tempCtx.rotate(Math.PI / 2);
+    tempCtx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
+
+    canvas.width = tempCanvas.width;
+    canvas.height = tempCanvas.height;
+    setCanvasDimensions({ width: tempCanvas.width, height: tempCanvas.height });
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(tempCanvas, 0, 0);
+    pushStateToHistory();
+    notify('Page rotated clockwise 90° ✓', 'success');
+  };
+
+  // Instant single-page download helper
+  const downloadCurrentPage = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `edited_${page.fileName.split('.')[0]}_page_${index + 1}.png`;
+    a.click();
+    notify('Downloaded high-res edited page! ✓', 'success');
+  };
+
   // Save finalized canvas back as standard File PNG object
   const handleFinalSave = () => {
     const canvas = canvasRef.current;
@@ -2771,6 +2811,15 @@ function CanvasEditorModal({ page, index, onClose, onSave }: CanvasEditorModalPr
                 Reset
               </button>
             </div>
+            {/* Rotate Controls */}
+            <button 
+              onClick={rotateCanvasClockwise}
+              className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white transition-all"
+              title="Rotate 90° Clockwise"
+            >
+              <RotateCw size={13} className="text-primary-400 animate-spin-slow" />
+              <span>Rotate 90°</span>
+            </button>
             <button onClick={onClose} className="p-1.5 rounded-xl bg-white/5 hover:bg-red-500 hover:text-white text-slate-400 transition-colors">
               <X size={18} />
             </button>
@@ -2888,6 +2937,25 @@ function CanvasEditorModal({ page, index, onClose, onSave }: CanvasEditorModalPr
                 className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary-500" 
               />
             </div>
+
+            {/* Stamp Image scale adjustment slider */}
+            {currentTool === 'image' && stampedImage && (
+              <div className="space-y-1.5 w-full border-t border-white/5 pt-3 hidden md:block">
+                <div className="flex justify-between text-[10px] text-slate-500 font-semibold">
+                  <span>Stamp Size Scale</span>
+                  <span>{Math.round(stampScale * 100)}%</span>
+                </div>
+                <input 
+                  type="range" 
+                  min={0.05} 
+                  max={1.5} 
+                  step={0.05}
+                  value={stampScale} 
+                  onChange={e => setStampScale(Number(e.target.value))}
+                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary-500" 
+                />
+              </div>
+            )}
 
             {/* Stamped image reset option */}
             {currentTool === 'image' && stampedImage && (
@@ -3118,6 +3186,13 @@ function CanvasEditorModal({ page, index, onClose, onSave }: CanvasEditorModalPr
           </div>
           
           <div className="flex gap-3">
+            <button 
+              onClick={downloadCurrentPage}
+              className="px-4 py-2 rounded-xl bg-primary-500/10 hover:bg-primary-500 text-primary-500 hover:text-white border border-primary-500/20 text-xs font-semibold flex items-center gap-1.5 transition-all"
+              title="Download edited page instantly as a PNG image"
+            >
+              <Download size={14} /> Instant Download
+            </button>
             <button 
               onClick={onClose}
               className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-semibold transition-all"
