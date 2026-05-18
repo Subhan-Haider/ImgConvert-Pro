@@ -69,7 +69,7 @@ export default function PdfTools() {
   // --- PDF Compression State ---
   const [compressFile, setCompressFile] = useState<File | null>(null);
   const [compressMode, setCompressMode] = useState<'low' | 'medium' | 'high' | 'preserve'>('medium');
-  const [compressProgress, setCompressProgress] = useState<{ current: number; total: number } | null>(null);
+  const [compressProgress, setCompressProgress] = useState<{ current: number; total: number; currentSize: number } | null>(null);
   const [compressResult, setCompressResult] = useState<{ originalSize: number; compressedSize: number; downloadUrl: string; filename: string } | null>(null);
 
   // --- Drag and Drop Reordering State ---
@@ -184,8 +184,9 @@ export default function PdfTools() {
         quality = 0.9;
       }
 
+      let runningSizeSum = 0;
       for (let i = 1; i <= totalPages; i++) {
-        setCompressProgress({ current: i, total: totalPages });
+        setCompressProgress({ current: i, total: totalPages, currentSize: runningSizeSum });
         
         const page = await pdf.getPage(i);
         const viewport = page.getViewport({ scale });
@@ -201,6 +202,8 @@ export default function PdfTools() {
         // Export page canvas as compressed JPEG blob
         const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', quality));
         if (!blob) throw new Error('Failed to capture page canvas');
+
+        runningSizeSum += blob.size;
 
         const pageBytes = await blob.arrayBuffer();
         const embeddedImg = await compiledPdf.embedJpg(pageBytes);
@@ -1429,7 +1432,7 @@ export default function PdfTools() {
 
                     {/* Progress indicator */}
                     {compressProgress && (
-                      <div className="py-6 space-y-3">
+                      <div className="py-6 space-y-3 animate-pulse">
                         <div className="flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
                           <span>Compressing document pages...</span>
                           <span>{Math.round((compressProgress.current / compressProgress.total) * 100)}%</span>
@@ -1440,9 +1443,16 @@ export default function PdfTools() {
                             style={{ width: `${(compressProgress.current / compressProgress.total) * 100}%` }}
                           />
                         </div>
-                        <p className="text-[10px] text-slate-500 italic text-center">
-                          Processing Page {compressProgress.current} of {compressProgress.total}...
-                        </p>
+                        <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1">
+                          <span className="italic">
+                            Processing Page {compressProgress.current} of {compressProgress.total}...
+                          </span>
+                          {compressProgress.currentSize > 0 && (
+                            <span className="font-semibold text-primary-500">
+                              Current Size: {formatSize(compressProgress.currentSize)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )}
 
