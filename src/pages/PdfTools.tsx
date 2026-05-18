@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect } from 'react';
-import { RotateCw, Trash2, ArrowLeft, ArrowRight, Layers, FileImage, Image as ImageIcon, Download, RefreshCw, Plus, HelpCircle } from 'lucide-react';
+import { RotateCw, Trash2, ArrowLeft, ArrowRight, Layers, FileImage, Image as ImageIcon, Download, RefreshCw, Plus, HelpCircle, FileText } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { useToast } from '../hooks/useToast';
@@ -23,7 +23,7 @@ interface ImagePageItem {
   preview: string;
 }
 
-type ActiveTab = 'editor' | 'to-images' | 'from-images';
+type ActiveTab = 'editor' | 'to-images' | 'from-images' | 'office-to-pdf';
 
 export default function PdfTools() {
   const { toasts, addToast, removeToast } = useToast();
@@ -57,12 +57,21 @@ export default function PdfTools() {
   const [editorCustomHeight, setEditorCustomHeight] = useState(842);
   const [editorOrientation, setEditorOrientation] = useState<'portrait' | 'landscape'>('portrait');
 
+  // --- Office to PDF State ---
+  const [officeFile, setOfficeFile] = useState<File | null>(null);
+  const [officeHtml, setOfficeHtml] = useState<string>('');
+  const [officeFileType, setOfficeFileType] = useState<'docx' | 'xlsx' | 'txt' | 'csv' | null>(null);
+  const [officeFilename, setOfficeFilename] = useState('office_document');
+
   // --- Common Helpers ---
   const clearWorkspace = () => {
     setPdfPages([]);
     setPdfToImgFile(null);
     setPdfToImgPages([]);
     setImagePages([]);
+    setOfficeFile(null);
+    setOfficeHtml('');
+    setOfficeFileType(null);
     notify('Workspace cleared', 'info');
   };
 
@@ -217,6 +226,8 @@ export default function PdfTools() {
           handlePdfToImgUpload(files[0]);
         } else if (activeTab === 'from-images') {
           handleImageUpload(files);
+        } else if (activeTab === 'office-to-pdf') {
+          handleOfficeUpload(files[0]);
         }
       }
     };
@@ -224,6 +235,162 @@ export default function PdfTools() {
     window.addEventListener('paste', handleGlobalPaste);
     return () => window.removeEventListener('paste', handleGlobalPaste);
   }, [activeTab]);
+
+  // --- Office to PDF Local Processing Core ---
+  const handleOfficeUpload = async (file: File) => {
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!['docx', 'xlsx', 'xls', 'csv', 'txt'].includes(ext || '')) {
+      notify('Unsupported format. Please upload .docx, .xlsx, .xls, .csv, or .txt', 'error');
+      return;
+    }
+
+    setIsProcessing(true);
+    notify('Parsing document locally…', 'info');
+
+    try {
+      setOfficeFile(file);
+      setOfficeFilename(file.name.replace(/\.[^/.]+$/, ''));
+      setOfficeFileType(ext === 'xls' ? 'xlsx' : (ext as any));
+
+      const reader = new FileReader();
+
+      if (ext === 'docx') {
+        reader.onload = async (e) => {
+          try {
+            const arrayBuffer = e.target?.result as ArrayBuffer;
+            const mammoth = (window as any).mammoth;
+            if (!mammoth) throw new Error('Mammoth DOCX engine not loaded yet. Please wait.');
+
+            const result = await mammoth.convertToHtml({ arrayBuffer });
+            setOfficeHtml(result.value || '<p class="text-slate-400">Empty Word Document</p>');
+            notify('DOCX parsed successfully ✓', 'success');
+          } catch (err: any) {
+            notify(`DOCX parse failed: ${err.message}`, 'error');
+            setOfficeFile(null);
+          }
+          setIsProcessing(false);
+        };
+        reader.readAsArrayBuffer(file);
+
+      } else if (ext === 'xlsx' || ext === 'xls') {
+        reader.onload = (e) => {
+          try {
+            const data = new Uint8Array(e.target?.result as ArrayBuffer);
+            const XLSX = (window as any).XLSX;
+            if (!XLSX) throw new Error('SheetJS engine not loaded yet. Please wait.');
+
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const html = XLSX.utils.sheet_to_html(worksheet);
+            setOfficeHtml(html || '<p class="text-slate-400">Empty Spreadsheet</p>');
+            notify('Spreadsheet parsed successfully ✓', 'success');
+          } catch (err: any) {
+            notify(`Spreadsheet parse failed: ${err.message}`, 'error');
+            setOfficeFile(null);
+          }
+          setIsProcessing(false);
+        };
+        reader.readAsArrayBuffer(file);
+
+      } else if (ext === 'csv') {
+        reader.onload = (e) => {
+          try {
+            const text = e.target?.result as string;
+            const rows = text.split('\n').filter(r => r.trim()).map(r => r.split(','));
+            const tableHtml = `
+              <table class="w-full text-left border-collapse border border-slate-300 dark:border-white/10 text-xs">
+                ${rows.map(r => `<tr>${r.map(c => `<td class="border border-slate-300 dark:border-white/10 p-1.5">${c}</td>`).join('')}</tr>`).join('')}
+              </table>
+            `;
+            setOfficeHtml(tableHtml);
+            notify('CSV parsed successfully ✓', 'success');
+          } catch (err: any) {
+            notify(`CSV parse failed: ${err.message}`, 'error');
+            setOfficeFile(null);
+          }
+          setIsProcessing(false);
+        };
+        reader.readAsText(file);
+
+      } else if (ext === 'txt') {
+        reader.onload = (e) => {
+          try {
+            const text = e.target?.result as string;
+            setOfficeHtml(`<pre class="whitespace-pre-wrap text-sm text-slate-800 dark:text-slate-200 font-mono">${text}</pre>`);
+            notify('Text file parsed successfully ✓', 'success');
+          } catch (err: any) {
+            notify(`Text parse failed: ${err.message}`, 'error');
+            setOfficeFile(null);
+          }
+          setIsProcessing(false);
+        };
+        reader.readAsText(file);
+      }
+
+    } catch (err: any) {
+      notify(`Office upload failed: ${err.message}`, 'error');
+      setIsProcessing(false);
+    }
+  };
+
+  const handleCompileOfficeToPdf = async () => {
+    if (!officeHtml || !officeFile) return;
+    setIsProcessing(true);
+    notify('Compiling Office to PDF…', 'info');
+
+    try {
+      const jspdf = (window as any).jspdf;
+      if (!jspdf) throw new Error('jsPDF compiler engine not available');
+
+      const doc = new jspdf.jsPDF({
+        orientation: 'portrait',
+        unit: 'pt',
+        format: 'a4'
+      });
+
+      // Create standard paper preview wrapper to format correctly in PDF export
+      const container = document.createElement('div');
+      container.style.width = '520px';
+      container.style.padding = '20px';
+      container.style.boxSizing = 'border-box';
+      container.style.fontFamily = 'Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
+      container.style.color = '#0f172a';
+      container.innerHTML = officeHtml;
+
+      // Inject clean table styling
+      const style = document.createElement('style');
+      style.innerHTML = `
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 15px; }
+        th, td { border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 10px; text-align: left; }
+        th { background-color: #f8fafc; font-weight: 600; }
+        p { margin-bottom: 8px; line-height: 1.5; font-size: 11px; }
+        h1 { font-size: 18px; font-weight: 700; margin-top: 16px; margin-bottom: 8px; color: #0f172a; }
+        h2 { font-size: 14px; font-weight: 600; margin-top: 12px; margin-bottom: 6px; color: #1e293b; }
+        pre { white-space: pre-wrap; font-size: 10px; font-family: monospace; line-height: 1.4; color: #334155; }
+      `;
+      container.appendChild(style);
+      document.body.appendChild(container);
+
+      await doc.html(container, {
+        callback: function (pdfDoc: any) {
+          pdfDoc.save(`${officeFilename.replace(/\.[a-zA-Z0-9]+$/, '') || 'office_document'}.pdf`);
+          document.body.removeChild(container);
+          notify('Office document compiled to PDF ✓', 'success');
+          setIsProcessing(false);
+        },
+        x: 35,
+        y: 35,
+        autoPaging: 'text',
+        width: 525,
+        windowWidth: 525
+      });
+
+    } catch (err: any) {
+      notify(`PDF compile failed: ${err.message}`, 'error');
+      setIsProcessing(false);
+    }
+  };
 
   // --- Page Organizing Helpers ---
   const rotatePage = (id: string) => {
@@ -497,12 +664,13 @@ export default function PdfTools() {
         {/* Tab Switcher */}
         <div className="flex justify-center mb-8 px-2">
           <div className="flex flex-wrap sm:flex-nowrap justify-center p-1 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl backdrop-blur-xl gap-1 sm:gap-0 w-full max-w-2xl">
-            {(['editor', 'to-images', 'from-images'] as const).map(tab => {
+            {(['editor', 'to-images', 'from-images', 'office-to-pdf'] as const).map(tab => {
               const active = activeTab === tab;
               const labels = {
                 'editor': { text: 'PDF Organizer / Merger', mobileText: 'Organizer', icon: Layers },
                 'to-images': { text: 'PDF to Images', mobileText: 'PDF to Img', icon: FileImage },
-                'from-images': { text: 'Images to PDF', mobileText: 'Img to PDF', icon: ImageIcon }
+                'from-images': { text: 'Images to PDF', mobileText: 'Img to PDF', icon: ImageIcon },
+                'office-to-pdf': { text: 'Office to PDF', mobileText: 'Office converter', icon: FileText }
               };
               const Icon = labels[tab].icon;
               return (
@@ -530,6 +698,59 @@ export default function PdfTools() {
           
           {/* Main workspace area */}
           <div className="lg:col-span-8 space-y-6">
+
+            {/* Split Page 4: Office to PDF */}
+            {activeTab === 'office-to-pdf' && (
+              <>
+                {!officeFile ? (
+                  <Card className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-black/10 dark:border-white/20 animate-fade-in">
+                    <div className="w-16 h-16 rounded-2xl bg-black/5 dark:bg-white/10 flex items-center justify-center text-primary-400 mb-4">
+                      <FileText size={32} />
+                    </div>
+                    <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Drop your Office file here</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm mb-4">
+                      Select or paste (Ctrl+V) any Word document (.docx), Spreadsheet (.xlsx, .xls), CSV, or Plain Text (.txt) file to convert it locally to PDF.
+                    </p>
+                    <label className="btn-base bg-primary-500 hover:bg-primary-600 text-white px-5 py-2.5 rounded-xl cursor-pointer">
+                      Browse Files
+                      <input 
+                        type="file" 
+                        accept=".docx,.xlsx,.xls,.csv,.txt" 
+                        className="hidden" 
+                        onChange={e => e.target.files?.[0] && handleOfficeUpload(e.target.files[0])} 
+                      />
+                    </label>
+                  </Card>
+                ) : (
+                  <Card className="animate-fade-in">
+                    <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-4 mb-4">
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-slate-900 dark:text-white truncate">
+                          File: {officeFile.name}
+                        </h3>
+                        <p className="text-xs text-slate-500 capitalize">
+                          Format: {officeFileType} File (Processed Locally)
+                        </p>
+                      </div>
+                      <button 
+                        onClick={() => { setOfficeFile(null); setOfficeHtml(''); setOfficeFileType(null); }} 
+                        className="text-xs text-red-400 hover:text-red-300"
+                      >
+                        Change File
+                      </button>
+                    </div>
+
+                    {/* High-Fidelity Paper Page Preview Sheet */}
+                    <div className="bg-slate-200 dark:bg-surface-900 rounded-xl p-4 sm:p-8 flex justify-center overflow-auto max-h-[600px] border border-black/5 dark:border-white/5">
+                      <div 
+                        className="bg-white text-slate-900 p-8 shadow-2xl rounded-sm w-[595px] min-h-[842px] border border-slate-300 font-sans prose prose-sm max-w-none text-left overflow-auto"
+                        dangerouslySetInnerHTML={{ __html: officeHtml }}
+                      />
+                    </div>
+                  </Card>
+                )}
+              </>
+            )}
             
             {/* Split Page 1: PDF Organizer / Merger */}
             {activeTab === 'editor' && (
@@ -1114,10 +1335,54 @@ export default function PdfTools() {
               </Card>
             )}
 
+            {/* Sidebar 4: Office to PDF Settings */}
+            {activeTab === 'office-to-pdf' && (
+              <Card className="animate-fade-in">
+                <h3 className="font-semibold text-slate-900 dark:text-white mb-4 text-sm uppercase tracking-wide">
+                  Output Settings
+                </h3>
+
+                <div className="space-y-4">
+                  {/* Filename */}
+                  <div>
+                    <label className="text-xs text-slate-600 dark:text-slate-400 mb-1 block">Output Filename</label>
+                    <input 
+                      type="text" 
+                      value={officeFilename}
+                      onChange={e => setOfficeFilename(e.target.value)}
+                      placeholder="compiled_office_document"
+                      className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500" 
+                    />
+                  </div>
+
+                  {/* Settings Warning description for Office conversions */}
+                  <div className="p-3 bg-primary-500/5 rounded-xl border border-primary-500/10 text-xs text-slate-500 leading-relaxed">
+                    <p className="font-semibold text-primary-500 dark:text-primary-400 mb-1">Local Sandbox Mode</p>
+                    Your office pages are converted securely in-memory using standalone Mammoth and SheetJS parsers. No documents are transmitted online.
+                  </div>
+                </div>
+
+                <div className="mt-6 border-t border-black/5 dark:border-white/5 pt-4">
+                  <Button 
+                    onClick={handleCompileOfficeToPdf}
+                    disabled={!officeFile || isProcessing}
+                    className="w-full py-3 flex items-center justify-center gap-2"
+                  >
+                    {isProcessing ? (
+                      <><RefreshCw size={16} className="animate-spin" /> Rendering…</>
+                    ) : (
+                      <><Download size={16} /> Compile & Save PDF</>
+                    )}
+                  </Button>
+                </div>
+              </Card>
+            )}
+
             {/* Secondary Action: Reset Workspace */}
             {((activeTab === 'editor' && pdfPages.length > 0) || 
               (activeTab === 'to-images' && pdfToImgFile) || 
-              (activeTab === 'from-images' && imagePages.length > 0)) && (
+              (activeTab === 'from-images' && imagePages.length > 0) ||
+              (activeTab === 'office-to-pdf' && officeFile)) && (
               <button 
                 onClick={clearWorkspace}
                 className="w-full py-2.5 rounded-xl border border-red-500/20 text-red-400 hover:bg-red-500/5 text-sm font-medium transition-all"
