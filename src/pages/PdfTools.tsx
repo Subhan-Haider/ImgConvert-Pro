@@ -2324,7 +2324,7 @@ function CanvasEditorModal({ page, index, allPages, onClose, onSave, onSaveAll }
   const [sigIsDrawing, setSigIsDrawing] = useState(false);
   const [sigMode, setSigMode] = useState<'draw' | 'upload'>('draw');
   const [uploadedSigImage, setUploadedSigImage] = useState<string | null>(null);
-  const [stampScale, setStampScale] = useState(0.35); // Default scale for signatures and custom image stamps
+  const [stampScale, setStampScale] = useState(2.0); // Default scale to 2.0 (200%) for stamps and signatures
 
   // Text Tool Overlay State
   const [textInput, setTextInput] = useState<{ x: number; y: number; val: string } | null>(null);
@@ -3256,7 +3256,7 @@ function CanvasEditorModal({ page, index, allPages, onClose, onSave, onSaveAll }
                 <input
                   type="range"
                   min={0.05}
-                  max={2.5}
+                  max={5.0}
                   step={0.05}
                   value={stampScale}
                   onChange={e => setStampScale(Number(e.target.value))}
@@ -3380,17 +3380,41 @@ function CanvasEditorModal({ page, index, allPages, onClose, onSave, onSaveAll }
                         <Minus size={11} />
                       </button>
 
-                      {/* Scale display */}
-                      <span className="text-[10px] text-primary-400 font-bold min-w-[32px] text-center font-mono">
-                        {Math.round(stampScale * 100)}%
-                      </span>
+                      {/* Scale display input */}
+                      <div className="flex items-center gap-0.5">
+                        <input
+                          type="text"
+                          defaultValue={Math.round(stampScale * 100)}
+                          key={Math.round(stampScale * 100)}
+                          onBlur={(e) => {
+                            const val = e.target.value.replace(/%/g, '').trim();
+                            const num = parseInt(val, 10);
+                            if (!isNaN(num)) {
+                              setStampScale(Math.min(5.0, Math.max(0.05, num / 100)));
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const val = (e.target as HTMLInputElement).value.replace(/%/g, '').trim();
+                              const num = parseInt(val, 10);
+                              if (!isNaN(num)) {
+                                setStampScale(Math.min(5.0, Math.max(0.05, num / 100)));
+                              }
+                              (e.target as HTMLInputElement).blur();
+                            }
+                          }}
+                          className="text-[10px] text-primary-400 font-bold bg-white/10 border border-white/20 rounded w-11 text-center font-mono focus:outline-none focus:border-primary-500 py-0.5"
+                          title="Type size & press Enter"
+                        />
+                        <span className="text-[10px] text-primary-400 font-bold">%</span>
+                      </div>
 
                       {/* Increase Size Button */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           e.preventDefault();
-                          setStampScale(prev => Math.min(2.5, prev + 0.05));
+                          setStampScale(prev => Math.min(5.0, prev + 0.05));
                         }}
                         className="bg-white/10 hover:bg-white/20 text-white rounded p-1 transition-colors hover:scale-105"
                         title="Increase Size"
