@@ -48,6 +48,14 @@ export default function PdfTools() {
   const [imagePages, setImagePages] = useState<ImagePageItem[]>([]);
   const [imagesMargin, setImagesMargin] = useState<'none' | 'small' | 'standard'>('none');
   const [imagesFilename, setImagesFilename] = useState('images_document');
+  const [imagesPageSize, setImagesPageSize] = useState<'fit' | 'a4' | 'letter'>('fit');
+  const [imagesOrientation, setImagesOrientation] = useState<'portrait' | 'landscape'>('portrait');
+
+  // --- PDF Editor Page Resizing State ---
+  const [editorPageSize, setEditorPageSize] = useState<'fit' | 'a4' | 'letter' | 'custom'>('fit');
+  const [editorCustomWidth, setEditorCustomWidth] = useState(595);
+  const [editorCustomHeight, setEditorCustomHeight] = useState(842);
+  const [editorOrientation, setEditorOrientation] = useState<'portrait' | 'landscape'>('portrait');
 
   // --- Common Helpers ---
   const clearWorkspace = () => {
@@ -280,6 +288,41 @@ export default function PdfTools() {
           copiedPage.setRotation(PDFLib.degrees(pageItem.rotation));
         }
 
+        // Apply Page Size and Orientation Resizing
+        if (editorPageSize !== 'fit') {
+          let targetW = 595; // A4 default
+          let targetH = 842;
+          if (editorPageSize === 'letter') {
+            targetW = 612;
+            targetH = 792;
+          } else if (editorPageSize === 'custom') {
+            targetW = editorCustomWidth;
+            targetH = editorCustomHeight;
+          }
+
+          if (editorOrientation === 'landscape') {
+            const temp = targetW;
+            targetW = targetH;
+            targetH = temp;
+          }
+
+          const currentW = copiedPage.getWidth();
+          const currentH = copiedPage.getHeight();
+
+          // Calculate aspect ratio scaling to fit target page size
+          const scale = Math.min(targetW / currentW, targetH / currentH);
+          const newW = currentW * scale;
+          const newH = currentH * scale;
+
+          // Center the content inside the resized canvas dimensions
+          const dx = (targetW - newW) / 2;
+          const dy = (targetH - newH) / 2;
+
+          copiedPage.setSize(targetW, targetH);
+          copiedPage.scale(scale, scale);
+          copiedPage.translateContent(dx, dy);
+        }
+
         // Apply margin adjustments
         if (editorMargin !== 'none') {
           const m = editorMargin === 'small' ? 15 : 30;
@@ -342,16 +385,48 @@ export default function PdfTools() {
             img = await doc.embedJpg(buffer); // falls back to jpeg engine
           }
 
-          const page = doc.addPage([img.width, img.height]);
+          let targetW = img.width;
+          let targetH = img.height;
+
+          if (imagesPageSize !== 'fit') {
+            targetW = imagesPageSize === 'letter' ? 612 : 595; // US Letter or A4 (595x842)
+            targetH = imagesPageSize === 'letter' ? 792 : 842;
+          }
+
+          if (imagesOrientation === 'landscape') {
+            const temp = targetW;
+            targetW = targetH;
+            targetH = temp;
+          }
+
+          const page = doc.addPage([targetW, targetH]);
           
+          let drawW = targetW;
+          let drawH = targetH;
+          let drawX = 0;
+          let drawY = 0;
+
           if (imagesMargin !== 'none') {
             const m = imagesMargin === 'small' ? 20 : 40;
-            const pw = img.width - m * 2;
-            const ph = img.height - m * 2;
-            page.drawImage(img, { x: m, y: m, width: pw, height: ph });
+            const availableW = targetW - m * 2;
+            const availableH = targetH - m * 2;
+
+            // Calculate fit scaling
+            const scale = Math.min(availableW / img.width, availableH / img.height);
+            drawW = img.width * scale;
+            drawH = img.height * scale;
+            drawX = m + (availableW - drawW) / 2;
+            drawY = m + (availableH - drawH) / 2;
           } else {
-            page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+            // Raw bleed or scaled fit bleed
+            const scale = Math.min(targetW / img.width, targetH / img.height);
+            drawW = img.width * scale;
+            drawH = img.height * scale;
+            drawX = (targetW - drawW) / 2;
+            drawY = (targetH - drawH) / 2;
           }
+
+          page.drawImage(img, { x: drawX, y: drawY, width: drawW, height: drawH });
         }
         const bytes = await doc.save();
         const blob = new Blob([bytes], { type: 'application/pdf' });
@@ -778,6 +853,71 @@ export default function PdfTools() {
                     />
                   </div>
 
+                  {/* Page Resize Settings */}
+                  <div className="border-t border-black/5 dark:border-white/5 pt-3 mt-3">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">Page Size & Format</label>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[10px] text-slate-500 mb-1 block">Standard Size</label>
+                        <select
+                          value={editorPageSize}
+                          onChange={e => setEditorPageSize(e.target.value as any)}
+                          className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        >
+                          <option value="fit">Original Page Size (Fit Content)</option>
+                          <option value="a4">Standard A4 (595 x 842 pt)</option>
+                          <option value="letter">US Letter (612 x 792 pt)</option>
+                          <option value="custom">Custom Dimensions</option>
+                        </select>
+                      </div>
+
+                      {editorPageSize !== 'fit' && (
+                        <div>
+                          <label className="text-[10px] text-slate-500 mb-1 block">Orientation</label>
+                          <div className="flex gap-2">
+                            {(['portrait', 'landscape'] as const).map(mode => (
+                              <button
+                                key={mode}
+                                type="button"
+                                onClick={() => setEditorOrientation(mode)}
+                                className={`flex-1 py-1.5 rounded-lg text-xs font-medium border capitalize transition-all ${
+                                  editorOrientation === mode
+                                    ? 'bg-primary-500/10 border-primary-500/30 text-primary-500'
+                                    : 'bg-black/5 dark:bg-white/5 border-transparent text-slate-600 dark:text-slate-400'
+                                }`}
+                              >
+                                {mode}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {editorPageSize === 'custom' && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] text-slate-500 mb-1 block">Width (pt)</label>
+                            <input
+                              type="number"
+                              value={editorCustomWidth}
+                              onChange={e => setEditorCustomWidth(Number(e.target.value))}
+                              className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-500 mb-1 block">Height (pt)</label>
+                            <input
+                              type="number"
+                              value={editorCustomHeight}
+                              onChange={e => setEditorCustomHeight(Number(e.target.value))}
+                              className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Margins */}
                   <div>
                     <label className="text-xs text-slate-600 dark:text-slate-400 mb-1 block">Document Margins</label>
@@ -890,8 +1030,49 @@ export default function PdfTools() {
                       value={imagesFilename}
                       onChange={e => setImagesFilename(e.target.value)}
                       placeholder="images_document"
-                      className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none" 
+                      className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500" 
                     />
+                  </div>
+
+                  {/* Page Dimensions */}
+                  <div className="border-t border-black/5 dark:border-white/5 pt-3">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">Output Format</label>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[10px] text-slate-500 mb-1 block">Target Size</label>
+                        <select
+                          value={imagesPageSize}
+                          onChange={e => setImagesPageSize(e.target.value as any)}
+                          className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        >
+                          <option value="fit">Match Input Image Size (Fit)</option>
+                          <option value="a4">Standard A4 Format</option>
+                          <option value="letter">US Letter Format</option>
+                        </select>
+                      </div>
+
+                      {imagesPageSize !== 'fit' && (
+                        <div>
+                          <label className="text-[10px] text-slate-500 mb-1 block">Orientation</label>
+                          <div className="flex gap-2">
+                            {(['portrait', 'landscape'] as const).map(mode => (
+                              <button
+                                key={mode}
+                                type="button"
+                                onClick={() => setImagesOrientation(mode)}
+                                className={`flex-1 py-1.5 rounded-lg text-xs font-medium border capitalize transition-all ${
+                                  imagesOrientation === mode
+                                    ? 'bg-primary-500/10 border-primary-500/30 text-primary-500'
+                                    : 'bg-black/5 dark:bg-white/5 border-transparent text-slate-600 dark:text-slate-400'
+                                }`}
+                              >
+                                {mode}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Margins */}
@@ -900,7 +1081,7 @@ export default function PdfTools() {
                     <select
                       value={imagesMargin}
                       onChange={e => setImagesMargin(e.target.value as any)}
-                      className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none"
+                      className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
                     >
                       <option value="none">Full Bleed (No margins)</option>
                       <option value="small">Thin Margin (20px)</option>
