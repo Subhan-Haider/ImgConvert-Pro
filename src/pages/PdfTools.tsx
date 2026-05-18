@@ -3336,9 +3336,12 @@ function CanvasEditorModal({ page, index, allPages, onClose, onSave, onSaveAll }
                       value={textInput.val}
                       onChange={e => setTextInput(prev => prev ? { ...prev, val: e.target.value } : null)}
                       onKeyDown={e => {
+                        e.stopPropagation();
                         if (e.key === 'Enter') finalizeText();
                         if (e.key === 'Escape') setTextInput(null);
                       }}
+                      onKeyPress={e => e.stopPropagation()}
+                      onKeyUp={e => e.stopPropagation()}
                       onBlur={finalizeText}
                       placeholder="Type here..."
                       className="bg-slate-900 text-white border border-primary-500 rounded px-2 py-1 text-sm shadow-xl focus:outline-none focus:ring-2 focus:ring-primary-500 font-semibold translate-y-[-10%]"
