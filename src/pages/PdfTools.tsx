@@ -1765,16 +1765,6 @@ export default function PdfTools() {
                       <a
                         href={compiledPdfResult.url}
                         download={compiledPdfResult.filename}
-                        onClick={e => {
-                          // Ensure DOM-attached download
-                          e.preventDefault();
-                          const a = document.createElement('a');
-                          a.href = compiledPdfResult.url;
-                          a.download = compiledPdfResult.filename;
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                        }}
                         className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium transition-all shadow-md"
                       >
                         <Download size={15} /> Download
@@ -1938,15 +1928,6 @@ export default function PdfTools() {
                       <a
                         href={compiledImagesPdfResult.url}
                         download={compiledImagesPdfResult.filename}
-                        onClick={e => {
-                          e.preventDefault();
-                          const a = document.createElement('a');
-                          a.href = compiledImagesPdfResult.url;
-                          a.download = compiledImagesPdfResult.filename;
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                        }}
                         className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium transition-all shadow-md"
                       >
                         <Download size={15} /> Download
