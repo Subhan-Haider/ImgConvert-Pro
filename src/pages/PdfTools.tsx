@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
-import { RotateCw, Trash2, ArrowLeft, ArrowRight, Layers, FileImage, Image as ImageIcon, Download, RefreshCw, Plus, HelpCircle, FileText, GripHorizontal, FileDown, Minimize2, CheckCircle2, Maximize2, Share2, Edit3, Type, PenTool, Highlighter, MousePointer2, Eraser, Undo, Redo, Save, X } from 'lucide-react';
+import { RotateCw, Trash2, ArrowLeft, ArrowRight, Layers, FileImage, Image as ImageIcon, Download, RefreshCw, Plus, Minus, HelpCircle, FileText, GripHorizontal, FileDown, Minimize2, CheckCircle2, Maximize2, Share2, Edit3, Type, PenTool, Highlighter, MousePointer2, Eraser, Undo, Redo, Save, X } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { useToast } from '../hooks/useToast';
@@ -2330,9 +2330,76 @@ function CanvasEditorModal({ page, index, onClose, onSave }: CanvasEditorModalPr
   const [textInput, setTextInput] = useState<{ x: number; y: number; val: string } | null>(null);
   const [canvasDimensions, setCanvasDimensions] = useState({ width: 600, height: 800 });
 
+  // Zoom State
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const zoomIn = () => setZoomLevel(prev => Math.min(3, prev + 0.15));
+  const zoomOut = () => setZoomLevel(prev => Math.max(0.4, prev - 0.15));
+  const resetZoom = () => setZoomLevel(1);
+
   // Undo/Redo Stacks
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+
+  // Keyboard Shortcuts Hook
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCtrl = e.ctrlKey || e.metaKey;
+      
+      // Stop keyboard triggers if user is actively typing in inputs (like Text Overlay)
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
+        return;
+      }
+      
+      if (isCtrl) {
+        if (e.key === '=' || e.key === '+') {
+          e.preventDefault();
+          zoomIn();
+        } else if (e.key === '-') {
+          e.preventDefault();
+          zoomOut();
+        } else if (e.key === '0') {
+          e.preventDefault();
+          resetZoom();
+        } else if (e.key.toLowerCase() === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) {
+            redo();
+          } else {
+            undo();
+          }
+        } else if (e.key.toLowerCase() === 'y') {
+          e.preventDefault();
+          redo();
+        } else if (e.key.toLowerCase() === 't') {
+          e.preventDefault();
+          setCurrentTool('text');
+        } else if (e.key.toLowerCase() === 'd') {
+          e.preventDefault();
+          setCurrentTool('draw');
+        } else if (e.key.toLowerCase() === 'h') {
+          e.preventDefault();
+          setCurrentTool('highlight');
+        } else if (e.key.toLowerCase() === 'e') {
+          e.preventDefault();
+          setCurrentTool('erase');
+        }
+      } else {
+        // Direct single key hotkeys
+        if (e.key.toLowerCase() === 'x') {
+          setCurrentTool('erase');
+        } else if (e.key.toLowerCase() === 't') {
+          setCurrentTool('text');
+        } else if (e.key.toLowerCase() === 'd') {
+          setCurrentTool('draw');
+        } else if (e.key.toLowerCase() === 'h') {
+          setCurrentTool('highlight');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [historyIndex, history]);
 
   // Initial Load of original page thumbnail
   useEffect(() => {
@@ -2652,9 +2719,38 @@ function CanvasEditorModal({ page, index, onClose, onSave }: CanvasEditorModalPr
             <h3 className="text-lg font-semibold text-white">Basic Page Annotator</h3>
             <p className="text-xs text-slate-400 mt-0.5">Annotating Page {index + 1} of {page.fileName}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-xl bg-white/5 hover:bg-red-500 hover:text-white text-slate-400 transition-colors">
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-1 bg-white/5 px-3 py-1 rounded-xl border border-white/10">
+              <button 
+                onClick={zoomOut} 
+                className="p-1 text-slate-400 hover:text-white transition-colors" 
+                title="Zoom Out (Ctrl -)"
+              >
+                <Minus size={14} />
+              </button>
+              <span className="text-xs text-white font-semibold min-w-[3rem] text-center tabular-nums">
+                {Math.round(zoomLevel * 100)}%
+              </span>
+              <button 
+                onClick={zoomIn} 
+                className="p-1 text-slate-400 hover:text-white transition-colors" 
+                title="Zoom In (Ctrl +)"
+              >
+                <Plus size={14} />
+              </button>
+              <button 
+                onClick={resetZoom} 
+                className="p-1 text-[10px] text-slate-400 hover:text-white border-l border-white/10 pl-2 ml-1" 
+                title="Reset Zoom (Ctrl 0)"
+              >
+                Reset
+              </button>
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded-xl bg-white/5 hover:bg-red-500 hover:text-white text-slate-400 transition-colors">
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Modal Work Environment */}
@@ -2779,11 +2875,28 @@ function CanvasEditorModal({ page, index, onClose, onSave }: CanvasEditorModalPr
               </button>
             )}
 
+            {/* Keyboard Shortcuts Guide */}
+            <div className="space-y-1.5 w-full border-t border-white/5 pt-3 hidden md:block shrink-0">
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block">Hotkeys Guide</span>
+              <div className="text-[10px] text-slate-400 space-y-1 bg-black/25 p-2 rounded-lg font-medium">
+                <div><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-white font-mono font-bold">T</kbd> / <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-white font-mono font-bold">Ctrl+T</kbd> : Add Text</div>
+                <div><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-white font-mono font-bold">D</kbd> / <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-white font-mono font-bold">Ctrl+D</kbd> : Brush Paint</div>
+                <div><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-white font-mono font-bold">H</kbd> / <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-white font-mono font-bold">Ctrl+H</kbd> : Highlight</div>
+                <div><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-white font-mono font-bold">X</kbd> / <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-white font-mono font-bold">Ctrl+E</kbd> : Whiteout</div>
+                <div><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-white font-mono font-bold">Ctrl+Z</kbd> : Undo</div>
+                <div><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-white font-mono font-bold">Ctrl+Y</kbd> : Redo</div>
+                <div><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-white font-mono font-bold">Ctrl + / -</kbd> : Canvas Zoom</div>
+              </div>
+            </div>
+
           </div>
 
           {/* Interactive Draw Environment */}
-          <div className="flex-1 bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden select-none">
-            <div className="relative border border-white/10 rounded-xl shadow-2xl bg-white max-h-[68vh] aspect-[3/4] flex items-center justify-center overflow-hidden">
+          <div className="flex-1 bg-slate-950 flex items-center justify-center p-4 relative overflow-auto select-none">
+            <div 
+              className="relative border border-white/10 rounded-xl shadow-2xl bg-white max-h-[68vh] aspect-[3/4] flex items-center justify-center overflow-visible transition-transform duration-100 ease-out origin-center"
+              style={{ transform: `scale(${zoomLevel})` }}
+            >
               <canvas
                 ref={canvasRef}
                 onMouseDown={handleStartDraw}
