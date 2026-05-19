@@ -16,6 +16,24 @@
 
 ---
 
+## 🔒 Local Sandbox Data-Flow Architecture
+
+```mermaid
+graph TD
+    A[User Drag & Drop File] -->|Loaded in RAM| B[Browser Volatile Sandbox]
+    B --> C{Execution Engines}
+    C -->|WebAssembly Worker| D[Offline OCR Engine]
+    C -->|pdf-lib Core| E[Page Merging / Annotator / Metadata Editor]
+    C -->|HTML5 Canvas| F[Batch Image Convert / Quality Compress]
+    D -->|Export Output| G[Trigger Native Direct Download]
+    E -->|Export Output| G
+    F -->|Export Output| G
+    style B fill:#312e81,stroke:#6366f1,stroke-width:2px,color:#fff
+    style G fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#fff
+```
+
+---
+
 ## 🌟 Premium Features Directory
 
 ### 🖼️ Universal Batch Image Converter
@@ -29,7 +47,7 @@
 ### 📄 Advanced PDF Tools Suite
 * **Interactive PDF Annotator:** Draw, write, erase, highlight, and adjust stroke vectors on an interactive canvas with undo/redo stacks.
 * **Visual Page Organizer:** Rearrange pages, delete pages, rotate single pages visually with an interactive zoom viewer.
-* **WASM Offline OCR Engine:** Extract selectable text locally from flat scans using Tesseract Web Worker threads supporting 11+ languages.
+* **WASM Offline OCR Engine:** Extract selectable text locally from flat scans using Tesseract Web Worker threads.
 * **Calculated PDF Splitter:** Partition documents by specific ranges, extract custom individual lists, or split every N pages.
 * **Precise Rotator & Cropper:** Align upside-down scans or crop layout margins dynamically.
 * **Dynamic Watermarker:** Stamp custom opacity centered text or tiled repeating copyright patterns utilizing native embedded standard fonts.
@@ -42,26 +60,59 @@
 
 ---
 
-## 🔒 100% Privacy Promise & Local Sandbox
-ImgConvert Pro operates strictly under a local-first browser paradigm.
+## 🌐 Browser Support & Performance Matrix
 
-* **Zero Servers Upload:** Your highly confidential files, images, and metadata reside entirely in volatile RAM inside your current tab's sandbox.
-* **Zero Tracking:** The entire application runs fully offline once initially loaded.
-* **GDPR, HIPAA & ISO Ready:** Zero storage footprint means zero attack surface, satisfying strict international data-privacy policies.
-* **GPU-Bound Speed:** WebAssembly core engines and HTML5 Canvas API deliver lightning-fast processing speeds by bypassing internet queue bottlenecks.
+| Browser | WebAssembly (WASM) | HTML5 Canvas GPU | Threading (Web Workers) | Recommended Limit |
+| :--- | :---: | :---: | :---: | :---: |
+| **Google Chrome** | 🟢 Native (Fast) | 🟢 Accelerated | 🟢 Multi-threaded | 100+ files / 500MB |
+| **Mozilla Firefox** | 🟢 Native (Fast) | 🟢 Accelerated | 🟢 Multi-threaded | 80+ files / 400MB |
+| **Apple Safari** | 🟢 Native (Stable) | 🟢 Accelerated | 🟢 Native Workers | 50+ files / 300MB |
+| **Microsoft Edge** | 🟢 Native (Fast) | 🟢 Accelerated | 🟢 Multi-threaded | 100+ files / 500MB |
+| **Brave Browser** | 🟢 Native (Fast) | 🟢 Accelerated | 🟢 Multi-threaded | 100+ files / 500MB |
 
 ---
 
-## 💻 Tech Stack & Engines
-* **Framework:** React 18 with strict TypeScript targets
-* **Build Engine:** Vite (Lightning fast HMR & build outputs)
-* **Styling:** CSS3 & Tailwind CSS with Glassmorphism variables
-* **Icons:** Lucide React
-* **PDF Libraries:** 
-  * `pdf-lib` for raw byte manipulation, page modifications, and font embedding.
-  * `pdf.js` (Mozilla Core) for rendering high-fidelity interactive DOM canvases.
-* **OCR engine:** WebAssembly Tesseract OCR Core executing on browser background Web Workers.
-* **Local Storage CMS:** Blog metadata editor and post compiler.
+## 📖 Local OCR Dictionary Catalog
+
+Our WASM-powered Optical Character Recognition engine operates fully offline by loading optimized dictionary models directly inside browser threads. Supported language packs include:
+
+* **English (`eng`)**
+* **Spanish (`spa`)**
+* **French (`fra`)**
+* **German (`deu`)**
+* **Italian (`ita`)**
+* **Portuguese (`por`)**
+* **Russian (`rus`)**
+* **Chinese (`chi_sim` / `chi_tra`)**
+* **Japanese (`jpn`)**
+* **Korean (`kor`)**
+
+---
+
+## 🎨 Custom Design System & Design Tokens
+
+ImgConvert Pro is styled utilizing a customized, highly premium Tailwind CSS layout containing glassmorphic utilities and dark-theme configurations:
+
+```javascript
+// tailwind.config.js
+module.exports = {
+  theme: {
+    extend: {
+      colors: {
+        surface: {
+          50: '#f8fafc',
+          900: '#0f172a',
+          950: '#070a13' // Custom deep canvas base token
+        },
+        primary: {
+          500: '#6366f1', // Vibrant Violet Indigo
+          600: '#4f46e5'
+        }
+      }
+    }
+  }
+}
+```
 
 ---
 
@@ -97,7 +148,7 @@ Make sure you have [Node.js](https://nodejs.org/) (version 18+ recommended) inst
 ### Installation
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/Subhan-Haider/3-img-exp.git
+   git clone https://github.com/Subhan-Haider/ImgConvert-Pro.git
    cd Image-Converter-website-main
    ```
 
