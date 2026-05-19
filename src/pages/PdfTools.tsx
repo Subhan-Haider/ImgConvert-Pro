@@ -271,7 +271,7 @@ export default function PdfTools() {
         }
       }
       const outBytes = await pdfDoc.save();
-      const blob = new Blob([outBytes], { type: 'application/pdf' });
+      const blob = new Blob([outBytes as any], { type: 'application/pdf' });
       if (watermarkResultUrl) URL.revokeObjectURL(watermarkResultUrl);
       setWatermarkResultUrl(URL.createObjectURL(blob));
       notify('Watermark applied successfully! ✓', 'success');
@@ -317,7 +317,7 @@ export default function PdfTools() {
         page.drawText(label, { x, y, size: pageNumSize, font, color: rgb(0.2, 0.2, 0.2) });
       });
       const outBytes = await pdfDoc.save();
-      const blob = new Blob([outBytes], { type: 'application/pdf' });
+      const blob = new Blob([outBytes as any], { type: 'application/pdf' });
       if (pageNumResultUrl) URL.revokeObjectURL(pageNumResultUrl);
       setPageNumResultUrl(URL.createObjectURL(blob));
       notify('Page numbers added! ✓', 'success');
@@ -368,7 +368,7 @@ export default function PdfTools() {
           const copiedPages = await newDoc.copyPages(srcDoc, indices);
           copiedPages.forEach(p => newDoc.addPage(p));
           const bytes = await newDoc.save();
-          const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+          const url = URL.createObjectURL(new Blob([bytes as any], { type: 'application/pdf' }));
           results.push({ name: `split_pages_${range[0]}-${range[1] ?? range[0]}.pdf`, url });
         }
       } else if (splitMode === 'every') {
@@ -379,7 +379,7 @@ export default function PdfTools() {
           const copiedPages = await newDoc.copyPages(srcDoc, indices);
           copiedPages.forEach(p => newDoc.addPage(p));
           const bytes = await newDoc.save();
-          const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+          const url = URL.createObjectURL(new Blob([bytes as any], { type: 'application/pdf' }));
           results.push({ name: `split_part_${Math.floor(i / n) + 1}.pdf`, url });
         }
       } else {
@@ -388,7 +388,7 @@ export default function PdfTools() {
         const copiedPages = await newDoc.copyPages(srcDoc, pageNums);
         copiedPages.forEach(p => newDoc.addPage(p));
         const bytes = await newDoc.save();
-        const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+        const url = URL.createObjectURL(new Blob([bytes as any], { type: 'application/pdf' }));
         results.push({ name: `extracted_pages.pdf`, url });
       }
 
@@ -534,7 +534,7 @@ export default function PdfTools() {
         }
       }
       const outBytes = await pdfDoc.save();
-      const blob = new Blob([outBytes], { type: 'application/pdf' });
+      const blob = new Blob([outBytes as any], { type: 'application/pdf' });
       if (transformResultUrl) URL.revokeObjectURL(transformResultUrl);
       setTransformResultUrl(URL.createObjectURL(blob));
       notify('Transform applied ✓', 'success');
@@ -582,7 +582,7 @@ export default function PdfTools() {
       pdfDoc.setProducer('PDF Craft Suite');
       pdfDoc.setModificationDate(new Date());
       const outBytes = await pdfDoc.save();
-      const blob = new Blob([outBytes], { type: 'application/pdf' });
+      const blob = new Blob([outBytes as any], { type: 'application/pdf' });
       if (metaResultUrl) URL.revokeObjectURL(metaResultUrl);
       setMetaResultUrl(URL.createObjectURL(blob));
       notify('Metadata saved successfully ✓', 'success');
@@ -617,7 +617,7 @@ export default function PdfTools() {
       if (flattenAnnotations) {
         const pages = pdfDoc.getPages();
         for (const page of pages) {
-          const annots = page.node.lookupMaybe((page.node as any).constructor.for?.('Annots'), Array) as any;
+          const annots = page.node.lookupMaybe((page.node as any).constructor.for?.('Annots'), Array as any) as any;
           if (annots) {
             try { page.node.delete((page.node as any).constructor.for?.('Annots')); } catch { /* ignore */ }
           }
@@ -625,7 +625,7 @@ export default function PdfTools() {
       }
       pdfDoc.setModificationDate(new Date());
       const outBytes = await pdfDoc.save();
-      const blob = new Blob([outBytes], { type: 'application/pdf' });
+      const blob = new Blob([outBytes as any], { type: 'application/pdf' });
       if (flattenResultUrl) URL.revokeObjectURL(flattenResultUrl);
       setFlattenResultUrl(URL.createObjectURL(blob));
       notify('PDF flattened successfully ✓', 'success');
@@ -688,7 +688,7 @@ export default function PdfTools() {
       setGrayStatus('Saving...');
       setGrayProgress(99);
       const outBytes = await outDoc.save();
-      const blob = new Blob([outBytes], { type: 'application/pdf' });
+      const blob = new Blob([outBytes as any], { type: 'application/pdf' });
       if (grayResultUrl) URL.revokeObjectURL(grayResultUrl);
       setGrayResultUrl(URL.createObjectURL(blob));
       setGrayProgress(100);
