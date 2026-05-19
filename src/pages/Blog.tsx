@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { 
   ArrowLeft, Clock, Share2, BookOpen, Heart, Calendar, 
-  ChevronRight, ShieldCheck
+  ChevronRight, ShieldCheck, Plus, X, Trash2
 } from 'lucide-react';
 import { Card } from '../components/Card';
 
@@ -16,6 +16,7 @@ interface Article {
   summary: string;
   coverImage: string;
   content: string[];
+  isCustom?: boolean;
 }
 
 const ARTICLES: Article[] = [
@@ -80,17 +81,91 @@ export default function Blog() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [likes, setLikes] = useState<Record<string, number>>({});
+  
+  // Custom blog articles state with localStorage persistence
+  const [customArticles, setCustomArticles] = useState<Article[]>(() => {
+    const saved = localStorage.getItem('imgconvert_custom_blogs');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Modal form states
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newCategory, setNewCategory] = useState('Privacy');
+  const [newAuthor, setNewAuthor] = useState('');
+  const [newAuthorRole, setNewAuthorRole] = useState('Contributor');
+  const [newSummary, setNewSummary] = useState('');
+  const [newContent, setNewContent] = useState('');
+  const [newCover, setNewCover] = useState('');
+
+  const allArticles = [...ARTICLES, ...customArticles];
 
   const handleLike = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setLikes(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
   };
 
-  const selectedArticle = ARTICLES.find(a => a.id === selectedArticleId);
+  const handleDelete = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm('Are you sure you want to delete this custom article?')) {
+      const updated = customArticles.filter(a => a.id !== id);
+      setCustomArticles(updated);
+      localStorage.setItem('imgconvert_custom_blogs', JSON.stringify(updated));
+      if (selectedArticleId === id) {
+        setSelectedArticleId(null);
+      }
+    }
+  };
 
-  const categories = ['All', 'Privacy', 'Performance', 'WASM'];
+  const handleCreatePost = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle || !newAuthor || !newSummary || !newContent) {
+      alert('Please fill out all required fields.');
+      return;
+    }
 
-  const filteredArticles = ARTICLES.filter(a => {
+    const defaultCovers: Record<string, string> = {
+      Privacy: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=800&q=80',
+      Performance: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80',
+      WASM: 'https://images.unsplash.com/photo-1544383835-bda2bc66a55d?auto=format&fit=crop&w=800&q=80',
+      General: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=80'
+    };
+
+    const finalCover = newCover.trim() || defaultCovers[newCategory] || defaultCovers.General;
+
+    const newArticle: Article = {
+      id: `custom-${Date.now()}`,
+      title: newTitle,
+      category: newCategory,
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      readTime: `${Math.max(1, Math.ceil(newContent.split(/\s+/).length / 200))} min read`,
+      author: newAuthor,
+      authorRole: newAuthorRole,
+      summary: newSummary,
+      coverImage: finalCover,
+      content: newContent.split('\n\n').filter(p => p.trim() !== ''),
+      isCustom: true
+    };
+
+    const updated = [newArticle, ...customArticles];
+    setCustomArticles(updated);
+    localStorage.setItem('imgconvert_custom_blogs', JSON.stringify(updated));
+
+    // Clear form inputs
+    setNewTitle('');
+    setNewAuthor('');
+    setNewAuthorRole('Contributor');
+    setNewSummary('');
+    setNewContent('');
+    setNewCover('');
+    setIsModalOpen(false);
+  };
+
+  const selectedArticle = allArticles.find(a => a.id === selectedArticleId);
+
+  const categories = ['All', 'Privacy', 'Performance', 'WASM', 'General'];
+
+  const filteredArticles = allArticles.filter(a => {
     const matchesSearch = a.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           a.summary.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || a.category === selectedCategory;
@@ -118,9 +193,18 @@ export default function Blog() {
               <h1 className="font-display font-black text-4xl sm:text-6xl tracking-tight text-slate-900 dark:text-white mb-6">
                 The ImgConvert <span className="gradient-text">Pro Blog</span>
               </h1>
-              <p className="text-base sm:text-lg text-slate-650 dark:text-slate-400 leading-relaxed">
+              <p className="text-base sm:text-lg text-slate-650 dark:text-slate-400 leading-relaxed mb-8">
                 Stay updated with the latest in browser engineering, document privacy models, WebAssembly optimizations, and high-performance digital asset compression.
               </p>
+
+              {/* Action Button to Add Blogs */}
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-bold text-sm sm:text-base transition-all duration-300 shadow-md shadow-primary-500/20 hover:shadow-lg hover:shadow-primary-500/30 group"
+              >
+                <Plus size={18} className="group-hover:rotate-90 transition-transform duration-300" />
+                Write an Article
+              </button>
             </div>
 
             {/* Filter controls */}
@@ -160,7 +244,7 @@ export default function Blog() {
                   <Card 
                     key={a.id} 
                     glow 
-                    className="cursor-pointer hover:-translate-y-1 transition-all duration-300 border border-slate-200/50 dark:border-white/5 flex flex-col justify-between overflow-hidden group"
+                    className="cursor-pointer hover:-translate-y-1 transition-all duration-300 border border-slate-200/50 dark:border-white/5 flex flex-col justify-between overflow-hidden group relative"
                     onClick={() => setSelectedArticleId(a.id)}
                   >
                     <div>
@@ -171,11 +255,27 @@ export default function Blog() {
                           alt={a.title} 
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100" 
                         />
-                        <div className="absolute top-4 left-4">
+                        <div className="absolute top-4 left-4 flex items-center gap-2">
                           <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-primary-600 text-white shadow-md">
                             {a.category}
                           </span>
+                          {a.isCustom && (
+                            <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-600 text-white shadow-md">
+                              User Post
+                            </span>
+                          )}
                         </div>
+
+                        {/* Custom Article Deletion Trigger */}
+                        {a.isCustom && (
+                          <button
+                            onClick={(e) => handleDelete(a.id, e)}
+                            className="absolute top-4 right-4 p-2 rounded-xl bg-red-600/90 text-white hover:bg-red-500 transition-colors shadow-md z-20"
+                            title="Delete Article"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-3 text-slate-500 dark:text-slate-450 text-xs mb-3 font-medium">
@@ -183,10 +283,10 @@ export default function Blog() {
                         <div className="flex items-center gap-1"><Clock size={12} /> {a.readTime}</div>
                       </div>
 
-                      <h3 className="font-display font-extrabold text-xl text-slate-900 dark:text-white mb-3 group-hover:text-primary-500 dark:group-hover:text-primary-400 transition-colors leading-tight">
+                      <h3 className="font-display font-extrabold text-xl text-slate-900 dark:text-white mb-3 group-hover:text-primary-500 dark:group-hover:text-primary-400 transition-colors leading-tight line-clamp-2">
                         {a.title}
                       </h3>
-                      <p className="text-slate-650 dark:text-slate-400 text-sm leading-relaxed mb-6">
+                      <p className="text-slate-650 dark:text-slate-400 text-sm leading-relaxed mb-6 line-clamp-3">
                         {a.summary}
                       </p>
                     </div>
@@ -197,8 +297,8 @@ export default function Blog() {
                           {a.author.split(' ').map(n => n[0]).join('')}
                         </div>
                         <div>
-                          <div className="text-xs font-bold text-slate-900 dark:text-white leading-none">{a.author}</div>
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-none">{a.authorRole}</div>
+                          <div className="text-xs font-bold text-slate-900 dark:text-white leading-none truncate max-w-[120px]">{a.author}</div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-none truncate max-w-[120px]">{a.authorRole}</div>
                         </div>
                       </div>
 
@@ -214,7 +314,7 @@ export default function Blog() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-white/5">
+              <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-white/5 mb-16">
                 <div className="w-12 h-12 mx-auto rounded-full bg-slate-100 dark:bg-slate-950 flex items-center justify-center mb-4 text-slate-500">
                   <BookOpen size={24} />
                 </div>
@@ -265,9 +365,16 @@ export default function Blog() {
             {/* Main Article Container */}
             <article className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-3xl overflow-hidden shadow-lg p-6 sm:p-12 mb-12">
               <header className="mb-10">
-                <span className="px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-primary-500/10 border border-primary-500/20 text-primary-600 dark:text-primary-400 mb-6 inline-block">
-                  {selectedArticle.category}
-                </span>
+                <div className="flex items-center gap-2 mb-6">
+                  <span className="px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-primary-500/10 border border-primary-500/20 text-primary-600 dark:text-primary-400 inline-block">
+                    {selectedArticle.category}
+                  </span>
+                  {selectedArticle.isCustom && (
+                    <span className="px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 inline-block">
+                      User Post
+                    </span>
+                  )}
+                </div>
 
                 <h1 className="font-display font-black text-3xl sm:text-5xl text-slate-900 dark:text-white mb-6 leading-tight">
                   {selectedArticle.title}
@@ -342,7 +449,7 @@ export default function Blog() {
             <div className="border-t border-black/5 dark:border-white/10 pt-10">
               <h4 className="font-display font-extrabold text-xl text-slate-900 dark:text-white mb-6">More from the Editorial Team</h4>
               <div className="grid sm:grid-cols-2 gap-6">
-                {ARTICLES.filter(a => a.id !== selectedArticle.id).slice(0, 2).map(r => (
+                {allArticles.filter(a => a.id !== selectedArticle.id).slice(0, 2).map(r => (
                   <div 
                     key={r.id} 
                     onClick={() => {
@@ -369,6 +476,136 @@ export default function Blog() {
           </div>
         )}
       </div>
+
+      {/* ================= WRITE ARTICLE MODAL ================= */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 backdrop-blur-md flex items-center justify-center p-4 bg-black/40 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative p-6 sm:p-8 animate-scale-in">
+            {/* Close Button */}
+            <button
+              onClick={() => setIsModalOpen(false)}
+              className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-black/5 dark:border-white/5">
+              <div className="w-10 h-10 rounded-xl bg-primary-500/10 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+                <BookOpen size={20} />
+              </div>
+              <div>
+                <h3 className="font-display font-extrabold text-xl text-slate-900 dark:text-white">Create a Blog Article</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Your article will compile and persist securely inside local storage.</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleCreatePost} className="space-y-5">
+              {/* Grid block */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Author Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newAuthor}
+                    onChange={e => setNewAuthor(e.target.value)}
+                    placeholder="e.g. Subhan Haider"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Author Role</label>
+                  <input
+                    type="text"
+                    value={newAuthorRole}
+                    onChange={e => setNewAuthorRole(e.target.value)}
+                    placeholder="e.g. Core Contributor"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Article Title *</label>
+                <input
+                  type="text"
+                  required
+                  value={newTitle}
+                  onChange={e => setNewTitle(e.target.value)}
+                  placeholder="e.g. Advanced Image Quality Metrics in Web Browsers"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all"
+                />
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Category</label>
+                  <select
+                    value={newCategory}
+                    onChange={e => setNewCategory(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all"
+                  >
+                    <option value="Privacy">Privacy</option>
+                    <option value="Performance">Performance</option>
+                    <option value="WASM">WASM</option>
+                    <option value="General">General</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Cover Image URL (Optional)</label>
+                  <input
+                    type="url"
+                    value={newCover}
+                    onChange={e => setNewCover(e.target.value)}
+                    placeholder="Leave blank for dynamic unsplash cover"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Short Summary *</label>
+                <input
+                  type="text"
+                  required
+                  value={newSummary}
+                  onChange={e => setNewSummary(e.target.value)}
+                  placeholder="Provide a 1-2 sentence high-level outline of the article"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Article Body Content *</label>
+                <textarea
+                  required
+                  rows={6}
+                  value={newContent}
+                  onChange={e => setNewContent(e.target.value)}
+                  placeholder="Write the full content of your article here. Separate paragraphs with double-newlines (Press Enter twice)."
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-black/5 dark:border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-semibold transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-sm font-bold transition-all shadow-md shadow-primary-500/10 hover:shadow-primary-500/25"
+                >
+                  Publish Article
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
