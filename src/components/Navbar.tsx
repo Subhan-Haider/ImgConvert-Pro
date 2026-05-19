@@ -85,6 +85,15 @@ export function Navbar() {
               {l.label}
             </NavLink>
           ))}
+          <div className="pt-4 border-t border-slate-200/50 dark:border-white/5 mt-2">
+            <Link
+              to="/converter"
+              onClick={() => setOpen(false)}
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-primary-500 to-primary-600 text-white py-3 text-sm rounded-xl font-bold shadow-md shadow-primary-500/10 hover:shadow-primary-500/20 transition-all"
+            >
+              <Zap size={14} /> Convert Now
+            </Link>
+          </div>
         </div>
       )}
     </nav>
