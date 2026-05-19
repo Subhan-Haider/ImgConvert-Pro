@@ -1,156 +1,127 @@
 <div align="center">
   
-# 🎨 Image Converter Pro & 📄 Client-Side PDF Tools
+# 🎨 ImgConvert Pro & 📄 Client-Side PDF Tools
 
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-B73BFE?style=for-the-badge&logo=vite&logoColor=FFD62E)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![PDF-Lib](https://img.shields.io/badge/PDF--Lib-FF4B4B?style=for-the-badge&logo=adobe-acrobat-reader&logoColor=white)](https://pdf-lib.js.org/)
+[![WebAssembly](https://img.shields.io/badge/WebAssembly-654FF0?style=for-the-badge&logo=webassembly&logoColor=white)](https://webassembly.org/)
 
-**A powerful, premium web application for processing images and PDF documents entirely in your browser.**
+**A powerful, premium local-first document workspace for processing images and PDFs entirely inside the browser's virtualized sandbox.**
 <br />
-*No files are ever uploaded to a server—everything runs locally using modern Web APIs.*
+*No files are ever uploaded to a server—100% processing in client-side RAM memory with GPU-bound canvas acceleration.*
 
 </div>
 
 ---
 
-## 🌟 Key Features
+## 🌟 Premium Features Directory
 
-### 🖼️ Image Processing (Converter)
-* **Format Conversion**: Convert seamlessly between `WebP`, `PNG`, `JPEG`, `GIF`, `BMP`, and `ICO`.
-* **Smart Compression**: Compress images with interactive quality sliders to save disk space without noticeable visual loss.
-* **Resizing Engine**: Precisely resize images by absolute width and height while preserving original aspect ratios.
-* **Rounded Corners**: Add beautifully rounded borders and corners to any image before downloading.
-* **Batch Support**: Drag and drop multiple images at once for rapid editing.
+### 🖼️ Universal Batch Image Converter
+* **Comprehensive Format Conversions:** Convert simultaneously between `PNG`, `JPG`, `JPEG`, `WEBP`, `AVIF`, `SVG`, `ICO`, `BMP`, `TIFF`, and `GIF`.
+* **Lossless Quality Customizer:** Real-time visual compression sliders with calculated output byte indicators.
+* **Canvas Border Padding:** Add aesthetic margins and custom backgrounds using color-pickers without stretching base layouts.
+* **Pro Resizing & Aspect Lock:** Scale dimensions via custom pixels or default platforms proportions.
+* **Transparency (Alpha Channels):** Preserve background transparenties or fill with custom highlights.
+* **Instant ZIP Compilation:** Download entire batch operations instantly via local-first ZIP archives.
 
-### 📄 Document Processing (PDF Tools)
-* **Advanced Page Management**: Full control over your document's structure:
-  * **Merge PDFs**: Combine multiple documents into one.
-  * **Split & Extract**: Pull specific pages out of a PDF into a new document.
-  * **Reorder Pages**: Visually drag and drop pages into any order.
-  * **Rotate Pages**: Fix upside-down pages with a single click.
-  * **Delete Pages**: Remove unwanted pages instantly.
-* **Basic Editor (Upcoming)**:
-  * **Add text**: Type directly onto the document.
-  * **Add images**: Stamp images or logos onto pages.
-  * **Draw tool**: Freehand drawing and markup.
-  * **Highlight text**: Emphasize important sections.
-  * **Add shapes/arrows**: Draw rectangles, circles, and directional arrows.
-  * **Add signature**: Sign documents digitally.
-  * **Whiteout/erase**: Mask out sensitive content visually.
-* **PDF to Images**: Extract pages from your PDF documents into high-resolution (300 DPI equivalent) PNG or JPEG images.
-* **Images to PDF**: Compile multiple images into a standardized PDF format (`A4`, `Letter`, or `Fit-to-image`).
-* **Compress PDF**: Reduce PDF file sizes significantly with `Low`, `Medium`, `High`, or `Quality-Preserving` compression modes.
-* **Native Sharing**: Share compiled documents and extracted images directly to WhatsApp, Gmail, or other OS applications using the native Web Share API.
+### 📄 Advanced PDF Tools Suite
+* **Interactive PDF Annotator:** Draw, write, erase, highlight, and adjust stroke vectors on an interactive canvas with undo/redo stacks.
+* **Visual Page Organizer:** Rearrange pages, delete pages, rotate single pages visually with an interactive zoom viewer.
+* **WASM Offline OCR Engine:** Extract selectable text locally from flat scans using Tesseract Web Worker threads supporting 11+ languages.
+* **Calculated PDF Splitter:** Partition documents by specific ranges, extract custom individual lists, or split every N pages.
+* **Precise Rotator & Cropper:** Align upside-down scans or crop layout margins dynamically.
+* **Dynamic Watermarker:** Stamp custom opacity centered text or tiled repeating copyright patterns utilizing native embedded standard fonts.
+* **Adaptive Page Numbers:** Stamp formatted labels (e.g., "Page 1 of 5", "1/5") across 4 distinct margin coordinates.
+* **Metadata Editor:** Add or modify PDF indexing properties (Title, Author, Subject, Keywords, Creator, Producer).
+* **Grayscale Black & White Converter:** Convert documents to grayscale locally to save ink and improve high-contrast readability.
+* **Forms & Widget Flattener:** Flatten editable fields and visual annotations to lock down vector layouts.
+* **Office-to-PDF Converter:** Convert documents, text files, and spreadsheets locally.
+* **PDF to High-Res Images & Images to PDF:** Dynamic bi-directional conversion pipelines.
 
 ---
 
-## 🔒 100% Privacy Promise & Architecture
-This entire suite of tools is designed to execute completely locally within the browser's virtualized sandbox via JavaScript and WebAssembly. 
+## 🔒 100% Privacy Promise & Local Sandbox
+ImgConvert Pro operates strictly under a local-first browser paradigm.
 
-* **Zero Uploads**: Unlike traditional converters, no files, images, or metadata ever touch an external server.
-* **Zero Tracking**: Completely offline-capable processing after the initial page load.
-* **Highly Secure**: Ideal for confidential business documents, personal IDs, and private photography.
-* **Blazing Fast**: Because there are no network upload/download bottlenecks, conversions happen instantly using your device's CPU and RAM.
-
----
-
-## 🚀 Tech Stack & Engines
-
-* **Frontend Framework**: React 18 with TypeScript
-* **Build Tool**: Vite (Lightning fast HMR)
-* **Styling**: Tailwind CSS with custom Glassmorphism UI elements
-* **Icons**: Lucide React
-* **PDF Engine**: 
-  * `pdf-lib` for reading, writing, and merging raw PDF bytes losslessly.
-  * `pdf.js` (Mozilla) for rendering PDF pages to interactive DOM canvases.
-* **Image Engine**: Native HTML5 `<canvas>` API for high-performance pixel manipulation and compression.
+* **Zero Servers Upload:** Your highly confidential files, images, and metadata reside entirely in volatile RAM inside your current tab's sandbox.
+* **Zero Tracking:** The entire application runs fully offline once initially loaded.
+* **GDPR, HIPAA & ISO Ready:** Zero storage footprint means zero attack surface, satisfying strict international data-privacy policies.
+* **GPU-Bound Speed:** WebAssembly core engines and HTML5 Canvas API deliver lightning-fast processing speeds by bypassing internet queue bottlenecks.
 
 ---
 
-## 📂 Project Structure
+## 💻 Tech Stack & Engines
+* **Framework:** React 18 with strict TypeScript targets
+* **Build Engine:** Vite (Lightning fast HMR & build outputs)
+* **Styling:** CSS3 & Tailwind CSS with Glassmorphism variables
+* **Icons:** Lucide React
+* **PDF Libraries:** 
+  * `pdf-lib` for raw byte manipulation, page modifications, and font embedding.
+  * `pdf.js` (Mozilla Core) for rendering high-fidelity interactive DOM canvases.
+* **OCR engine:** WebAssembly Tesseract OCR Core executing on browser background Web Workers.
+* **Local Storage CMS:** Blog metadata editor and post compiler.
 
+---
+
+## 📂 Visual Workspace Structure
 ```text
-Image-or-PDF-tool/
-├── public/                 # Static assets
+Image-Converter-website-main/
+├── public/                 # Static assets, fonts, cmaps, and local locales
 ├── src/
-│   ├── components/         # Reusable UI components (Navbar, Footer)
-│   ├── pages/              # Main application views
-│   │   ├── Converter.tsx   # Image processing engine
-│   │   ├── PdfTools.tsx    # PDF processing & organizer engine
-│   │   ├── Home.tsx        # Landing page
-│   │   └── Features.tsx    # Features overview
-│   ├── App.tsx             # Main routing wrapper
-│   ├── index.css           # Global Tailwind & Glassmorphism styles
-│   └── main.tsx            # React DOM entry point
-├── package.json            # Dependencies and scripts
-├── tailwind.config.js      # Tailwind theme configuration
-└── vite.config.ts          # Vite build configuration
+│   ├── components/         # Reusable UI widgets (Navbar, Footer, Card, Button)
+│   ├── layouts/            # Main site structure wrapper (MainLayout)
+│   ├── pages/              # Main app view sandboxes
+│   │   ├── Home.tsx        # Hero Router Landing page
+│   │   ├── Converter.tsx   # Batch Image converting engine
+│   │   ├── PdfTools.tsx    # PDF Suite & interactive editor
+│   │   ├── Features.tsx    # Feature breakdown & compliance grids
+│   │   ├── Blog.tsx        # Blog center & local CMS modal
+│   │   └── About.tsx       # About page
+│   ├── App.tsx             # Route registry
+│   ├── index.css           # Global layout variables & typography
+│   └── main.tsx            # React virtual DOM bootstrap
+├── package.json            # System scripts & dependencies
+├── tailwind.config.js      # Custom theme color tokens
+└── vite.config.ts          # Vite bundler parameters
 ```
 
 ---
 
-## 🗺️ Roadmap & Upcoming Features
-
-- [ ] **Basic PDF Editor (Interactive Canvas)**:
-  - [ ] **Add text**: Type directly onto the document.
-  - [ ] **Add images**: Stamp images or logos onto pages.
-  - [ ] **Draw tool**: Freehand drawing and markup.
-  - [ ] **Highlight text**: Emphasize important sections.
-  - [ ] **Add shapes/arrows**: Draw rectangles, circles, and directional arrows.
-  - [ ] **Add signature**: Sign documents digitally.
-  - [ ] **Whiteout/erase**: Mask out sensitive content visually.
-- [ ] **Dark Mode Toggle**: Persistent system-preference synchronized theme switcher.
-- [ ] **PDF Password Protection**: Encrypt and decrypt PDFs directly in the browser.
-- [ ] **OCR (Text Extraction)**: Pull selectable text out of flat images using client-side WebAssembly models.
-- [ ] **Bulk Watermarking**: Apply custom image/text watermarks across hundreds of pages instantly.
-- [ ] **Image Filters & Effects**: Adjust brightness, contrast, saturation, and apply professional LUT filters locally.
-- [ ] **EXIF Metadata Editor**: View, strip, or modify hidden EXIF metadata (GPS, camera info) from images.
-- [ ] **AI Background Removal**: Automatically remove image backgrounds using local ONNX machine learning models.
-- [ ] **PDF Redaction**: Securely black out sensitive information and burn it into the document so it cannot be recovered.
-
----
-
-## 💻 Running Locally
-
-To get a local copy up and running, follow these simple steps:
+## 🚀 Running Locally
 
 ### Prerequisites
-Make sure you have [Node.js](https://nodejs.org/) installed on your machine.
+Make sure you have [Node.js](https://nodejs.org/) (version 18+ recommended) installed.
 
 ### Installation
-
-1. **Clone the repository**
+1. **Clone the repository:**
    ```bash
-   git clone git@github.com:Subhan-Haider/Image-or-PDF-tool.git
-   cd Image-or-PDF-tool
+   git clone https://github.com/Subhan-Haider/3-img-exp.git
+   cd Image-Converter-website-main
    ```
 
-2. **Install dependencies**
+2. **Install node dependencies:**
    ```bash
    npm install
    ```
 
-3. **Start the development server**
+3. **Start the local hot-reload dev-server:**
    ```bash
    npm run dev
    ```
-   *The app will be available at `http://localhost:5173`.*
+   *The application will boot at `http://localhost:5173` (or `http://localhost:5175`).*
 
-4. **Build for production**
+4. **Verify TypeScript & compile a production-ready package:**
    ```bash
    npm run build
    ```
-   *The optimized static files will be generated in the `dist` folder.*
+   *The optimized static assets will be compiled directly in the `dist` directory.*
 
 ---
 
 ## 📝 License & Copyright
 
-**Copyright (c) 2024 Subhan Haider. All Rights Reserved.**
+**Copyright (c) 2026 Subhan Haider. All Rights Reserved.**
 
-This is proprietary software. You may view and fork this repository for personal/educational evaluation, but commercial use, unauthorized distribution, or creating a competing product from this source code is strictly prohibited. See the [LICENSE](LICENSE) file for more details.
-
-# 3-img-exp
+This is proprietary software. You may view and fork this repository for personal evaluation, but commercial use, unauthorized distribution, or creating a competing product from this source code is strictly prohibited. See the [LICENSE](LICENSE) file for more details.
