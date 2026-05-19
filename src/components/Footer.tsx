@@ -13,7 +13,7 @@ export function Footer() {
           </div>
 
           <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-sm text-slate-600 dark:text-slate-500">
-            {[['/', 'Home'], ['/converter', 'Converter'], ['/pdf-tools', 'PDF Tools'], ['/features', 'Features'], ['/about', 'About'], ['/contact', 'Contact'], ['/privacy', 'Privacy'], ['/terms', 'Terms']].map(([to, label]) => (
+            {[['/', 'Home'], ['/converter', 'Converter'], ['/pdf-tools', 'PDF Tools'], ['/features', 'Features'], ['/blog', 'Blog'], ['/about', 'About'], ['/contact', 'Contact'], ['/privacy', 'Privacy'], ['/terms', 'Terms']].map(([to, label]) => (
               <Link key={to} to={to} className="hover:text-slate-900 dark:hover:text-slate-300 transition-colors">{label}</Link>
             ))}
           </div>

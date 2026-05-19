@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { to: '/converter', label: 'Converter' },
   { to: '/pdf-tools', label: 'PDF Tools' },
   { to: '/features', label: 'Features' },
+  { to: '/blog', label: 'Blog' },
   { to: '/about', label: 'About' },
 ];
 

@@ -11,6 +11,7 @@ import ScrollToTop from './components/ScrollToTop';
 
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
+import Blog from './pages/Blog';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
           <Route path="contact" element={<Contact />} />
           <Route path="privacy" element={<Privacy />} />
           <Route path="terms" element={<Terms />} />
+          <Route path="blog" element={<Blog />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
