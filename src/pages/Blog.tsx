@@ -73,6 +73,57 @@ const ARTICLES: Article[] = [
       'Because Tesseract languages dictionary models (such as English, Spanish, French, and German) are cached securely inside the browser storage index, text extraction executes in milliseconds without sending any data packets across the internet.',
       'The parsed characters are returned as clean text layouts that can be instantly copied to your clipboard or export as .txt manuscripts. It is fast, robust, fully private, and operates 100% offline.'
     ]
+  },
+  {
+    id: 'local-pdf-crypto',
+    title: 'Unlocking Local-First PDF Password Security: Browser Cryptography',
+    category: 'Privacy',
+    date: 'May 08, 2026',
+    readTime: '6 min read',
+    author: 'Maya Lin',
+    authorRole: 'Security Researcher',
+    summary: 'Learn how the SubtleCrypto API and WebAssembly PDF encryption algorithms secure document byte streams directly inside browser client memory without third-party decryption relays.',
+    coverImage: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=800&q=80',
+    content: [
+      'Protecting confidential records is a top priority for corporate and personal workflows. When you share password-encrypted PDFs over typical online decrypters, you are sending your raw master keys directly over standard network channels. If those servers are monitored, your document password keys are permanently exposed.',
+      'Our local cryptography model keeps credentials 100% inside your own workspace. We use WebAssembly ports of robust cryptographic models combined with standard browser-native HTML5 SubtleCrypto methods. When you enter a password to lock or unlock a PDF, the key derivation functions are executed in-tab.',
+      'This means your master hash is calculated in real time, and the raw document bytes are encrypted directly in client-side RAM before being formatted into standardized PDF outputs. No external database or relay server ever receives the key or raw decrypted layers.',
+      'Whether you are protecting personal bank statements, proprietary intellectual layouts, or sensitive clinical logs, your passwords and keys remain fully locked inside your local workspace.'
+    ]
+  },
+  {
+    id: 'svg-vector-future',
+    title: 'The Future of Vector Graphics: Native SVG Conversions in Modern Apps',
+    category: 'General',
+    date: 'May 05, 2026',
+    readTime: '5 min read',
+    author: 'Marcus Vane',
+    authorRole: 'Lead UI Designer',
+    summary: 'Understand how client-side vector rasterization and SVG structural compiling allow high-fidelity image scaling and seamless responsive visual exports.',
+    coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
+    content: [
+      'Vector elements (like SVGs) are the cornerstone of clean modern visual designs. Unlike standard raster formats (like PNGs and JPEGs) which consist of fixed pixel grids, SVGs consist of geometric path vectors that can scale indefinitely without quality degradation.',
+      'Converting these visual paths into standard raster elements for web delivery or batch archiving traditionally required heavy design environments. ImgConvert Pro automates this by executing native vector-to-raster parsing inside the browser canvas.',
+      'When you upload an SVG file, the application parses the DOM XML structure, preserves visual attributes like linear gradients and viewBox sizes, and renders the mathematical curves onto a high-definition canvas element. From there, you can export to next-gen WebP or AVIF formats instantly.',
+      'This offline rendering method maintains crisp lines and flawless color fidelity. It provides a robust, lightweight workflow for developers and designers who need high-performance assets.'
+    ]
+  },
+  {
+    id: 'multithreaded-batch-convert',
+    title: 'Supercharging Batch File Conversions with Background Multithreading',
+    category: 'Performance',
+    date: 'May 01, 2026',
+    readTime: '7 min read',
+    author: 'Nolan Vance',
+    authorRole: 'Parallel Systems Developer',
+    summary: 'A deep dive into browser Web Workers, dynamic task pools, and parallel offscreen rendering strategies to convert hundreds of files concurrently without blocking interface feedback.',
+    coverImage: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=800&q=80',
+    content: [
+      'Processing massive batches of images or heavy multi-page documents can easily freeze the main browser thread. When this happens, buttons become unresponsive, animations freeze, and the entire tab becomes completely locked.',
+      'To prevent this, ImgConvert Pro implements a dynamic Web Worker architecture. By spawning multiple parallel threads, the main UI thread remains completely free for user interaction while CPU-intensive pixel conversions execute in the background.',
+      'Each file in a batch is assigned to an isolated background worker. These workers maintain their own WebAssembly memories and execute raw compression, scaling, and file compilation concurrently. This allows you to process hundreds of items simultaneously without a single drop in UI frame rate.',
+      'This multithreaded design utilizes every processing core on your local machine. It turns your browser into a high-powered, fully private local workstation that handles heavy-duty processing with ease.'
+    ]
   }
 ];
 
