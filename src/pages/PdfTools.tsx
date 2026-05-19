@@ -1891,7 +1891,7 @@ export default function PdfTools() {
                       <iframe
                         ref={annotateIframeRef}
                         src={`/pdfjs-annotation-viewer/web/viewer.html?file=${encodeURIComponent(annotatePdfUrl)}#pagemode=none&zoom=page-fit`}
-                        className={`w-full border-0 bg-slate-100 dark:bg-slate-800 ${isAnnotatorFullscreen ? 'h-full' : 'h-[75vh] min-h-[800px] xl:h-[85vh]'}`}
+                        className={`w-full border-0 bg-slate-100 dark:bg-slate-800 ${isAnnotatorFullscreen ? 'h-full' : 'h-[60vh] sm:h-[75vh] min-h-[400px] sm:min-h-[600px] lg:min-h-[800px] xl:h-[85vh]'}`}
                         title="Interactive PDF Annotator"
                         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
                         onLoad={handleAnnotateIframeLoad}
@@ -1944,9 +1944,9 @@ export default function PdfTools() {
                     </div>
 
                     {/* High-Fidelity Paper Page Preview Sheet */}
-                    <div className="bg-slate-200 dark:bg-surface-900 rounded-xl p-4 sm:p-8 flex justify-center overflow-auto max-h-[600px] border border-black/5 dark:border-white/5">
+                    <div className="bg-slate-200 dark:bg-surface-900 rounded-xl p-4 sm:p-8 flex justify-center overflow-auto max-h-[600px] border border-black/5 dark:border-white/5 w-full">
                       <div
-                        className="bg-white text-slate-900 p-8 shadow-2xl rounded-sm w-[595px] min-h-[842px] border border-slate-300 font-sans prose prose-sm max-w-none text-left overflow-auto"
+                        className="bg-white text-slate-900 p-4 sm:p-8 shadow-2xl rounded-sm w-full max-w-[595px] min-h-[400px] sm:min-h-[842px] border border-slate-300 font-sans prose prose-sm max-w-none text-left overflow-auto"
                         dangerouslySetInnerHTML={{ __html: officeHtml }}
                       />
                     </div>
