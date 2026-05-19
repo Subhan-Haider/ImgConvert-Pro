@@ -1,5 +1,6 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
-import { RotateCw, Trash2, ArrowLeft, ArrowRight, Layers, FileImage, Image as ImageIcon, Download, RefreshCw, Plus, Minus, Upload, HelpCircle, FileText, GripHorizontal, FileDown, Minimize2, CheckCircle2, Maximize2, Share2, Edit3, Type, PenTool, Highlighter, MousePointer2, Eraser, Undo, Redo, Save, X, EyeOff, Award, Check, Move, Crop, Contrast } from 'lucide-react';
+import { RotateCw, Trash2, ArrowLeft, ArrowRight, Layers, FileImage, Image as ImageIcon, Download, RefreshCw, Plus, Minus, Upload, HelpCircle, FileText, GripHorizontal, FileDown, Minimize2, CheckCircle2, Maximize2, Share2, Edit3, Type, PenTool, Highlighter, MousePointer2, Eraser, Undo, Redo, Save, X, EyeOff, Award, Check, Move, Crop, Contrast, Languages, Stamp } from 'lucide-react';
+import Tesseract from 'tesseract.js';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { useToast } from '../hooks/useToast';
@@ -24,14 +25,124 @@ interface ImagePageItem {
   preview: string;
 }
 
-type ActiveTab = 'editor' | 'to-images' | 'from-images' | 'office-to-pdf' | 'compress';
+type ActiveTab = 'annotate' | 'editor' | 'to-images' | 'from-images' | 'compress' | 'office-to-pdf' | 'ocr' | 'watermark' | 'page-numbers' | 'split' | 'transform' | 'metadata' | 'flatten' | 'grayscale';
+
+const PdfLivePreview = ({ file, renderOverlay }: { file: File | null; renderOverlay?: (url: string) => React.ReactNode }) => {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+    if (!file) {
+      setPreviewUrl(null);
+      return;
+    }
+    const generatePreview = async () => {
+      try {
+        const pdfjsLib = (window as any).pdfjsLib;
+        if (!pdfjsLib) return;
+        const ab = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+        const page = await pdf.getPage(1);
+        const vp = page.getViewport({ scale: 1 });
+        const scale = Math.min(300 / vp.width, 400 / vp.height);
+        const scaledVp = page.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width = scaledVp.width;
+        canvas.height = scaledVp.height;
+        await page.render({ canvasContext: canvas.getContext('2d')!, viewport: scaledVp }).promise;
+        if (isActive) setPreviewUrl(canvas.toDataURL());
+      } catch (e) {
+        console.error("Failed to generate PDF preview:", e);
+      }
+    };
+    generatePreview();
+    return () => { isActive = false; };
+  }, [file]);
+
+  if (!previewUrl) return (
+    <div className="h-[250px] w-full bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center border border-black/5 dark:border-white/5 animate-pulse">
+      <div className="text-xs text-slate-400 font-medium">Loading preview...</div>
+    </div>
+  );
+
+  return (
+    <div className="relative inline-block rounded overflow-hidden shadow-xl border border-black/5 dark:border-white/5">
+      <img src={previewUrl} alt="Preview" className="block max-h-[300px] w-auto bg-white pointer-events-none" />
+      {renderOverlay && renderOverlay(previewUrl)}
+    </div>
+  );
+};
 
 export default function PdfTools() {
   const { toasts, addToast, removeToast } = useToast();
   const notify = useCallback((msg: string, type?: 'success' | 'error' | 'info') => addToast(msg, type), [addToast]);
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>('editor');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('annotate');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // --- PDF Annotate Editor State ---
+  const [annotatePdfUrl, setAnnotatePdfUrl] = useState<string | null>(null);
+  const [annotateFile, setAnnotateFile] = useState<File | null>(null);
+  const [isAnnotatorFullscreen, setIsAnnotatorFullscreen] = useState(false);
+  const annotateIframeRef = useRef<HTMLIFrameElement>(null);
+
+  const handleAnnotateIframeLoad = useCallback(() => {
+    setTimeout(() => {
+      try {
+        const iframe = annotateIframeRef.current;
+        if (iframe?.contentDocument) {
+          const doc = iframe.contentDocument;
+          const downloadBtn = doc.getElementById('download');
+          const secondaryDownloadBtn = doc.getElementById('secondaryDownload');
+          if (downloadBtn) downloadBtn.style.display = 'none';
+          if (secondaryDownloadBtn) secondaryDownloadBtn.style.display = 'none';
+          
+          const customToolbar = doc.querySelector('.CustomToolbar');
+          if (customToolbar) {
+            const buttons = customToolbar.querySelectorAll('li, button');
+            buttons.forEach((btn: any) => {
+              const text = btn.textContent?.trim();
+              if (text === '保存' || text === 'Save') {
+                btn.style.display = 'none';
+              }
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Could not access iframe content to hide save button');
+      }
+    }, 1000);
+  }, []);
+
+  const handleSaveAnnotatedPdf = useCallback(() => {
+    try {
+      const iframe = annotateIframeRef.current;
+      if (iframe?.contentWindow) {
+        const win = iframe.contentWindow as any;
+        if (win.PDFViewerApplication) {
+          win.PDFViewerApplication.download();
+          notify('Exporting annotated PDF... ✓', 'success');
+          return;
+        }
+      }
+      
+      // Fallback: click the hidden download button
+      if (iframe?.contentDocument) {
+        const doc = iframe.contentDocument;
+        const downloadBtn = doc.getElementById('download');
+        if (downloadBtn) {
+          downloadBtn.click();
+          notify('Exporting annotated PDF... ✓', 'success');
+          return;
+        }
+      }
+      
+      notify('Could not export PDF automatically. Please try again.', 'error');
+    } catch (e) {
+      console.error('Error saving annotated PDF:', e);
+      notify('Permission denied or error saving annotated PDF.', 'error');
+    }
+  }, [notify]);
 
   // --- PDF Editor Workspace State ---
   const [pdfPages, setPdfPages] = useState<PdfPageItem[]>([]);
@@ -39,11 +150,12 @@ export default function PdfTools() {
   const [editorFilename, setEditorFilename] = useState('compiled_document');
   const [editorWatermark, setEditorWatermark] = useState('');
   const [editorPageNumbers, setEditorPageNumbers] = useState(false);
+  const [editorMetadata, setEditorMetadata] = useState({ title: '', author: '', subject: '', keywords: '' });
 
   // --- PDF to Images State ---
   const [pdfToImgFile, setPdfToImgFile] = useState<File | null>(null);
   const [pdfToImgPages, setPdfToImgPages] = useState<{ pageNum: number; thumbnail: string; size: number }[]>([]);
-  const [pdfToImgFormat, setPdfToImgFormat] = useState<'png' | 'jpeg' | 'webp'>('png');
+  const [pdfToImgFormat, setPdfToImgFormat] = useState<'png' | 'jpeg' | 'webp' | 'bmp' | 'gif' | 'tiff'>('png');
   const [pdfToImgQuality, setPdfToImgQuality] = useState(90);
 
   // --- Images to PDF State ---
@@ -103,6 +215,574 @@ export default function PdfTools() {
     notify('Page edits applied successfully ✓', 'success');
   };
 
+  // --- PDF OCR State ---
+  const [ocrFile, setOcrFile] = useState<File | null>(null);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrText, setOcrText] = useState('');
+  const [ocrLanguage, setOcrLanguage] = useState('eng');
+  const [ocrStatus, setOcrStatus] = useState('');
+  const [ocrPageNum, setOcrPageNum] = useState<'all' | number>('all');
+  const [ocrPagesTotal, setOcrPagesTotal] = useState(0);
+
+  // --- Watermark PDF State ---
+  const [watermarkFile, setWatermarkFile] = useState<File | null>(null);
+  const [watermarkResultUrl, setWatermarkResultUrl] = useState<string | null>(null);
+  const [watermarkText, setWatermarkText] = useState('CONFIDENTIAL');
+  const [watermarkOpacity, setWatermarkOpacity] = useState(0.25);
+  const [watermarkSize, setWatermarkSize] = useState(60);
+  const [watermarkColor, setWatermarkColor] = useState('#ff0000');
+  const [watermarkLayout, setWatermarkLayout] = useState<'centered' | 'tiled'>('centered');
+
+  const handleApplyWatermark = useCallback(async () => {
+    if (!watermarkFile) return;
+    setIsProcessing(true);
+    try {
+      const { PDFDocument, rgb, degrees, StandardFonts } = await import('pdf-lib');
+      const bytes = await watermarkFile.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(bytes);
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const pages = pdfDoc.getPages();
+      const hexToRgb = (hex: string) => {
+        const r = parseInt(hex.slice(1, 3), 16) / 255;
+        const g = parseInt(hex.slice(3, 5), 16) / 255;
+        const b = parseInt(hex.slice(5, 7), 16) / 255;
+        return rgb(r, g, b);
+      };
+      const color = hexToRgb(watermarkColor);
+      for (const page of pages) {
+        const { width, height } = page.getSize();
+        const fontSize = watermarkSize;
+        if (watermarkLayout === 'tiled') {
+          for (let x = 50; x < width; x += 200) {
+            for (let y = 50; y < height; y += 150) {
+              page.drawText(watermarkText, { x, y, size: fontSize / 2, color, opacity: watermarkOpacity, rotate: degrees(30), font });
+            }
+          }
+        } else {
+          page.drawText(watermarkText, {
+            x: width / 2 - (watermarkText.length * fontSize * 0.3),
+            y: height / 2,
+            size: fontSize,
+            color,
+            opacity: watermarkOpacity,
+            rotate: degrees(-35),
+            font,
+          });
+        }
+      }
+      const outBytes = await pdfDoc.save();
+      const blob = new Blob([outBytes], { type: 'application/pdf' });
+      if (watermarkResultUrl) URL.revokeObjectURL(watermarkResultUrl);
+      setWatermarkResultUrl(URL.createObjectURL(blob));
+      notify('Watermark applied successfully! ✓', 'success');
+    } catch (e: any) {
+      notify('Failed to apply watermark: ' + e.message, 'error');
+    }
+    setIsProcessing(false);
+  }, [watermarkFile, watermarkText, watermarkOpacity, watermarkSize, watermarkColor, watermarkLayout, watermarkResultUrl, notify]);
+
+  // --- Page Numbers State ---
+  const [pageNumFile, setPageNumFile] = useState<File | null>(null);
+  const [pageNumResultUrl, setPageNumResultUrl] = useState<string | null>(null);
+  const [pageNumPosition, setPageNumPosition] = useState<'bottom-center' | 'bottom-right' | 'top-center' | 'top-right'>('bottom-center');
+  const [pageNumFormat, setPageNumFormat] = useState<'n' | 'Page n' | 'Page n of N' | 'n / N'>('Page n of N');
+  const [pageNumSize, setPageNumSize] = useState(12);
+  const [pageNumMargin, setPageNumMargin] = useState(20);
+  const [pageNumStartAt, setPageNumStartAt] = useState(1);
+
+  const handleApplyPageNumbers = useCallback(async () => {
+    if (!pageNumFile) return;
+    setIsProcessing(true);
+    try {
+      const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
+      const bytes = await pageNumFile.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(bytes);
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const pages = pdfDoc.getPages();
+      const total = pages.length;
+      pages.forEach((page, i) => {
+        const { width, height } = page.getSize();
+        const pageNum = i + pageNumStartAt;
+        let label = '';
+        if (pageNumFormat === 'n') label = String(pageNum);
+        else if (pageNumFormat === 'Page n') label = `Page ${pageNum}`;
+        else if (pageNumFormat === 'Page n of N') label = `Page ${pageNum} of ${total}`;
+        else label = `${pageNum} / ${total}`;
+        const textWidth = font.widthOfTextAtSize(label, pageNumSize);
+        let x = width / 2 - textWidth / 2;
+        let y = pageNumMargin;
+        if (pageNumPosition === 'bottom-right') { x = width - textWidth - pageNumMargin; y = pageNumMargin; }
+        else if (pageNumPosition === 'top-center') { x = width / 2 - textWidth / 2; y = height - pageNumMargin - pageNumSize; }
+        else if (pageNumPosition === 'top-right') { x = width - textWidth - pageNumMargin; y = height - pageNumMargin - pageNumSize; }
+        page.drawText(label, { x, y, size: pageNumSize, font, color: rgb(0.2, 0.2, 0.2) });
+      });
+      const outBytes = await pdfDoc.save();
+      const blob = new Blob([outBytes], { type: 'application/pdf' });
+      if (pageNumResultUrl) URL.revokeObjectURL(pageNumResultUrl);
+      setPageNumResultUrl(URL.createObjectURL(blob));
+      notify('Page numbers added! ✓', 'success');
+    } catch (e: any) {
+      notify('Failed to add page numbers: ' + e.message, 'error');
+    }
+    setIsProcessing(false);
+  }, [pageNumFile, pageNumPosition, pageNumFormat, pageNumSize, pageNumMargin, pageNumStartAt, pageNumResultUrl, notify]);
+
+  // --- Split PDF State ---
+  const [splitFile, setSplitFile] = useState<File | null>(null);
+  const [splitTotalPages, setSplitTotalPages] = useState(0);
+  const [splitMode, setSplitMode] = useState<'range' | 'every' | 'extract'>('range');
+  const [splitRange, setSplitRange] = useState('1-3');
+  const [splitEvery, setSplitEvery] = useState(1);
+  const [splitExtractPages, setSplitExtractPages] = useState('1,2,3');
+  const [splitResults, setSplitResults] = useState<{ name: string; url: string }[]>([]);
+
+  const handleLoadSplitFile = useCallback(async (file: File) => {
+    setSplitFile(file);
+    setSplitResults([]);
+    const pdfjsLib = (window as any).pdfjsLib;
+    if (!pdfjsLib) { notify('PDF.js not ready yet', 'error'); return; }
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const ab = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+    setSplitTotalPages(pdf.numPages);
+  }, [notify]);
+
+  const handleSplitPdf = useCallback(async () => {
+    if (!splitFile) return;
+    setIsProcessing(true);
+    try {
+      const { PDFDocument } = await import('pdf-lib');
+      const srcBytes = await splitFile.arrayBuffer();
+      const srcDoc = await PDFDocument.load(srcBytes);
+      const total = srcDoc.getPageCount();
+      const results: { name: string; url: string }[] = [];
+
+      if (splitMode === 'range') {
+        const parts = splitRange.split(',').map(s => s.trim());
+        for (const part of parts) {
+          const newDoc = await PDFDocument.create();
+          const range = part.includes('-') ? part.split('-').map(Number) : [Number(part), Number(part)];
+          const from = Math.max(1, range[0]) - 1;
+          const to = Math.min(total, range[1] ?? range[0]) - 1;
+          const indices = Array.from({ length: to - from + 1 }, (_, i) => from + i);
+          const copiedPages = await newDoc.copyPages(srcDoc, indices);
+          copiedPages.forEach(p => newDoc.addPage(p));
+          const bytes = await newDoc.save();
+          const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+          results.push({ name: `split_pages_${range[0]}-${range[1] ?? range[0]}.pdf`, url });
+        }
+      } else if (splitMode === 'every') {
+        const n = Math.max(1, splitEvery);
+        for (let i = 0; i < total; i += n) {
+          const newDoc = await PDFDocument.create();
+          const indices = Array.from({ length: Math.min(n, total - i) }, (_, j) => i + j);
+          const copiedPages = await newDoc.copyPages(srcDoc, indices);
+          copiedPages.forEach(p => newDoc.addPage(p));
+          const bytes = await newDoc.save();
+          const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+          results.push({ name: `split_part_${Math.floor(i / n) + 1}.pdf`, url });
+        }
+      } else {
+        const pageNums = splitExtractPages.split(',').map(s => parseInt(s.trim()) - 1).filter(n => n >= 0 && n < total);
+        const newDoc = await PDFDocument.create();
+        const copiedPages = await newDoc.copyPages(srcDoc, pageNums);
+        copiedPages.forEach(p => newDoc.addPage(p));
+        const bytes = await newDoc.save();
+        const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+        results.push({ name: `extracted_pages.pdf`, url });
+      }
+
+      setSplitResults(results);
+      notify(`PDF split into ${results.length} file(s) ✓`, 'success');
+    } catch (e: any) {
+      notify('Split failed: ' + e.message, 'error');
+    }
+    setIsProcessing(false);
+  }, [splitFile, splitMode, splitRange, splitEvery, splitExtractPages, notify]);
+
+
+
+  // === TRANSFORM (Rotate + Crop) — unified tool ===
+  const [transformFile, setTransformFile] = useState<File | null>(null);
+  const [transformResultUrl, setTransformResultUrl] = useState<string | null>(null);
+  const [transformPreviewUrl, setTransformPreviewUrl] = useState<string | null>(null);
+  const [transformPageWidth, setTransformPageWidth] = useState(595);
+  const [transformPageHeight, setTransformPageHeight] = useState(842);
+  // Rotate sub-state
+  const [rotateAngle, setRotateAngle] = useState<0 | 90 | 180 | 270>(0);
+  // Crop sub-state
+  const [cropTop, setCropTop] = useState(0);
+  const [cropBottom, setCropBottom] = useState(0);
+  const [cropLeft, setCropLeft] = useState(0);
+  const [cropRight, setCropRight] = useState(0);
+  const [cropUnit, setCropUnit] = useState<'mm' | 'pt' | 'px'>('mm');
+
+  // Mouse drag state for interactive cropping
+  const [cropDragEdge, setCropDragEdge] = useState<string | null>(null);
+  const transformPreviewRef = useRef<HTMLImageElement | null>(null);
+
+  const handleCropDrag = useCallback((e: React.MouseEvent | MouseEvent) => {
+    if (!cropDragEdge || !transformPreviewRef.current) return;
+    const rect = transformPreviewRef.current.getBoundingClientRect();
+    
+    // Calculate normalized position (0 to 1) relative to image
+    let x = (e.clientX - rect.left) / rect.width;
+    let y = (e.clientY - rect.top) / rect.height;
+    
+    // Clamp to 0-1
+    x = Math.max(0, Math.min(1, x));
+    y = Math.max(0, Math.min(1, y));
+
+    // Convert to points
+    const ptX = x * transformPageWidth;
+    const ptY = y * transformPageHeight;
+
+    // Convert points to current unit
+    const toUnit = (pts: number) => {
+      if (cropUnit === 'mm') return pts / 2.8346;
+      if (cropUnit === 'px') return pts / 0.75;
+      return pts;
+    };
+
+    if (cropDragEdge.includes('top')) {
+      const val = toUnit(ptY);
+      if (val < transformPageHeight / 2.8346 - cropBottom) setCropTop(Math.max(0, val));
+    }
+    if (cropDragEdge.includes('bottom')) {
+      const val = toUnit(transformPageHeight - ptY);
+      if (val < transformPageHeight / 2.8346 - cropTop) setCropBottom(Math.max(0, val));
+    }
+    if (cropDragEdge.includes('left')) {
+      const val = toUnit(ptX);
+      if (val < transformPageWidth / 2.8346 - cropRight) setCropLeft(Math.max(0, val));
+    }
+    if (cropDragEdge.includes('right')) {
+      const val = toUnit(transformPageWidth - ptX);
+      if (val < transformPageWidth / 2.8346 - cropLeft) setCropRight(Math.max(0, val));
+    }
+  }, [cropDragEdge, transformPageWidth, transformPageHeight, cropUnit, cropTop, cropBottom, cropLeft, cropRight]);
+
+  const handleCropDragEnd = useCallback(() => {
+    setCropDragEdge(null);
+  }, []);
+
+  useEffect(() => {
+    if (cropDragEdge) {
+      window.addEventListener('mousemove', handleCropDrag);
+      window.addEventListener('mouseup', handleCropDragEnd);
+      return () => {
+        window.removeEventListener('mousemove', handleCropDrag);
+        window.removeEventListener('mouseup', handleCropDragEnd);
+      };
+    }
+  }, [cropDragEdge, handleCropDrag, handleCropDragEnd]);
+
+  const cropToPoints = useCallback((val: number) => {
+    if (cropUnit === 'mm') return val * 2.8346;
+    if (cropUnit === 'px') return val * 0.75;
+    return val;
+  }, [cropUnit]);
+
+  const handleLoadTransformFile = useCallback(async (file: File) => {
+    setTransformFile(file);
+    setTransformResultUrl(null);
+    setTransformPreviewUrl(null);
+    setCropTop(0); setCropBottom(0); setCropLeft(0); setCropRight(0);
+    setRotateAngle(0);
+    try {
+      const pdfjsLib = (window as any).pdfjsLib;
+      if (!pdfjsLib) { notify('PDF.js not ready', 'error'); return; }
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const ab = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+      const page = await pdf.getPage(1);
+      const vp = page.getViewport({ scale: 1 });
+      setTransformPageWidth(vp.width);
+      setTransformPageHeight(vp.height);
+      const scale = Math.min(480 / vp.width, 640 / vp.height);
+      const scaledVp = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = scaledVp.width;
+      canvas.height = scaledVp.height;
+      await page.render({ canvasContext: canvas.getContext('2d')!, viewport: scaledVp }).promise;
+      setTransformPreviewUrl(canvas.toDataURL());
+    } catch (e: any) { notify('Failed to load file: ' + e.message, 'error'); }
+  }, [notify]);
+
+  const handleApplyTransform = useCallback(async () => {
+    if (!transformFile) return;
+    setIsProcessing(true);
+    try {
+      const { PDFDocument, degrees } = await import('pdf-lib');
+      const bytes = await transformFile.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(bytes);
+      const pages = pdfDoc.getPages();
+      for (const page of pages) {
+        // 1. Rotate
+        if (rotateAngle !== 0) {
+          const current = page.getRotation().angle;
+          page.setRotation(degrees((current + rotateAngle) % 360));
+        }
+        // 2. Crop box
+        const { width, height } = page.getSize();
+        const l = cropToPoints(cropLeft);
+        const r = cropToPoints(cropRight);
+        const t = cropToPoints(cropTop);
+        const b = cropToPoints(cropBottom);
+        if (l > 0 || r > 0 || t > 0 || b > 0) {
+          page.setCropBox(l, b, Math.max(1, width - l - r), Math.max(1, height - b - t));
+        }
+      }
+      const outBytes = await pdfDoc.save();
+      const blob = new Blob([outBytes], { type: 'application/pdf' });
+      if (transformResultUrl) URL.revokeObjectURL(transformResultUrl);
+      setTransformResultUrl(URL.createObjectURL(blob));
+      notify('Transform applied ✓', 'success');
+    } catch (e: any) {
+      notify('Transform failed: ' + e.message, 'error');
+    }
+    setIsProcessing(false);
+  }, [transformFile, rotateAngle, cropTop, cropBottom, cropLeft, cropRight, cropToPoints, transformResultUrl, notify]);
+
+  const [metaFile, setMetaFile] = useState<File | null>(null);
+  const [metaResultUrl, setMetaResultUrl] = useState<string | null>(null);
+  const [metaTitle, setMetaTitle] = useState('');
+  const [metaAuthor, setMetaAuthor] = useState('');
+  const [metaSubject, setMetaSubject] = useState('');
+  const [metaKeywords, setMetaKeywords] = useState('');
+  const [metaCreator, setMetaCreator] = useState('');
+
+  const handleLoadMetaFile = useCallback(async (file: File) => {
+    setMetaFile(file);
+    setMetaResultUrl(null);
+    try {
+      const { PDFDocument } = await import('pdf-lib');
+      const bytes = await file.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(bytes);
+      setMetaTitle(pdfDoc.getTitle() || '');
+      setMetaAuthor(pdfDoc.getAuthor() || '');
+      setMetaSubject(pdfDoc.getSubject() || '');
+      setMetaKeywords(pdfDoc.getKeywords() || '');
+      setMetaCreator(pdfDoc.getCreator() || '');
+    } catch { /* ignore parse errors */ }
+  }, []);
+
+  const handleSaveMetadata = useCallback(async () => {
+    if (!metaFile) return;
+    setIsProcessing(true);
+    try {
+      const { PDFDocument } = await import('pdf-lib');
+      const bytes = await metaFile.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(bytes);
+      pdfDoc.setTitle(metaTitle);
+      pdfDoc.setAuthor(metaAuthor);
+      pdfDoc.setSubject(metaSubject);
+      pdfDoc.setKeywords([metaKeywords]);
+      pdfDoc.setCreator(metaCreator);
+      pdfDoc.setProducer('PDF Craft Suite');
+      pdfDoc.setModificationDate(new Date());
+      const outBytes = await pdfDoc.save();
+      const blob = new Blob([outBytes], { type: 'application/pdf' });
+      if (metaResultUrl) URL.revokeObjectURL(metaResultUrl);
+      setMetaResultUrl(URL.createObjectURL(blob));
+      notify('Metadata saved successfully ✓', 'success');
+    } catch (e: any) {
+      notify('Failed to save metadata: ' + e.message, 'error');
+    }
+    setIsProcessing(false);
+  }, [metaFile, metaTitle, metaAuthor, metaSubject, metaKeywords, metaCreator, metaResultUrl, notify]);
+
+
+  // --- Flatten PDF State ---
+  const [flattenFile, setFlattenFile] = useState<File | null>(null);
+  const [flattenResultUrl, setFlattenResultUrl] = useState<string | null>(null);
+  const [flattenAnnotations, setFlattenAnnotations] = useState(true);
+  const [flattenForms, setFlattenForms] = useState(true);
+
+  const handleFlattenPdf = useCallback(async () => {
+    if (!flattenFile) return;
+    setIsProcessing(true);
+    try {
+      const { PDFDocument } = await import('pdf-lib');
+      const bytes = await flattenFile.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+      // Flatten all interactive form fields
+      if (flattenForms) {
+        try {
+          const form = pdfDoc.getForm();
+          form.flatten();
+        } catch { /* no form fields - that's fine */ }
+      }
+      // Flatten widget annotations from pages
+      if (flattenAnnotations) {
+        const pages = pdfDoc.getPages();
+        for (const page of pages) {
+          const annots = page.node.lookupMaybe((page.node as any).constructor.for?.('Annots'), Array) as any;
+          if (annots) {
+            try { page.node.delete((page.node as any).constructor.for?.('Annots')); } catch { /* ignore */ }
+          }
+        }
+      }
+      pdfDoc.setModificationDate(new Date());
+      const outBytes = await pdfDoc.save();
+      const blob = new Blob([outBytes], { type: 'application/pdf' });
+      if (flattenResultUrl) URL.revokeObjectURL(flattenResultUrl);
+      setFlattenResultUrl(URL.createObjectURL(blob));
+      notify('PDF flattened successfully ✓', 'success');
+    } catch (e: any) {
+      notify('Flatten failed: ' + e.message, 'error');
+    }
+    setIsProcessing(false);
+  }, [flattenFile, flattenForms, flattenAnnotations, flattenResultUrl, notify]);
+
+  // --- Grayscale PDF State ---
+  const [grayFile, setGrayFile] = useState<File | null>(null);
+  const [grayResultUrl, setGrayResultUrl] = useState<string | null>(null);
+  const [grayProgress, setGrayProgress] = useState(0);
+  const [grayStatus, setGrayStatus] = useState('');
+  const [grayScale, setGrayScale] = useState(1.5); // render scale for quality
+
+  const handleConvertGrayscale = useCallback(async () => {
+    if (!grayFile) return;
+    setIsProcessing(true);
+    setGrayProgress(0);
+    setGrayStatus('Loading PDF...');
+    try {
+      const { PDFDocument } = await import('pdf-lib');
+      const pdfjsLib = (window as any).pdfjsLib;
+      if (!pdfjsLib) throw new Error('PDF.js not ready');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const srcBytes = await grayFile.arrayBuffer();
+      const srcPdf = await pdfjsLib.getDocument({ data: srcBytes.slice(0) }).promise;
+      const total = srcPdf.numPages;
+      const outDoc = await PDFDocument.create();
+
+      for (let i = 1; i <= total; i++) {
+        setGrayStatus(`Converting page ${i} of ${total}...`);
+        setGrayProgress(Math.round(((i - 1) / total) * 100));
+        const page = await srcPdf.getPage(i);
+        const vp = page.getViewport({ scale: grayScale });
+        const canvas = document.createElement('canvas');
+        canvas.width = vp.width;
+        canvas.height = vp.height;
+        const ctx = canvas.getContext('2d')!;
+        // Render in full color first
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+        // Convert to grayscale via pixel manipulation
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imageData.data;
+        for (let j = 0; j < d.length; j += 4) {
+          const luma = Math.round(0.299 * d[j] + 0.587 * d[j + 1] + 0.114 * d[j + 2]);
+          d[j] = d[j + 1] = d[j + 2] = luma;
+        }
+        ctx.putImageData(imageData, 0, 0);
+        // Embed as JPEG into new PDF
+        const jpegBytes = await new Promise<Uint8Array>(resolve => {
+          canvas.toBlob(b => { b!.arrayBuffer().then(ab => resolve(new Uint8Array(ab))); }, 'image/jpeg', 0.92);
+        });
+        const img = await outDoc.embedJpg(jpegBytes);
+        const newPage = outDoc.addPage([vp.width / grayScale, vp.height / grayScale]);
+        newPage.drawImage(img, { x: 0, y: 0, width: vp.width / grayScale, height: vp.height / grayScale });
+      }
+
+      setGrayStatus('Saving...');
+      setGrayProgress(99);
+      const outBytes = await outDoc.save();
+      const blob = new Blob([outBytes], { type: 'application/pdf' });
+      if (grayResultUrl) URL.revokeObjectURL(grayResultUrl);
+      setGrayResultUrl(URL.createObjectURL(blob));
+      setGrayProgress(100);
+      setGrayStatus('Done!');
+      notify('PDF converted to grayscale ✓', 'success');
+    } catch (e: any) {
+      notify('Grayscale failed: ' + e.message, 'error');
+    }
+    setIsProcessing(false);
+  }, [grayFile, grayScale, grayResultUrl, notify]);
+
+  const handleOcrExtractText = useCallback(async () => {
+    if (!ocrFile) {
+      notify('Please select a PDF file first', 'error');
+      return;
+    }
+    setIsProcessing(true);
+    setOcrProgress(0);
+    setOcrStatus('Initializing PDF.js engine...');
+    setOcrText('');
+
+    try {
+      const pdfjsLib = (window as any).pdfjsLib;
+      if (!pdfjsLib) {
+        throw new Error('PDF.js engine is still loading. Please wait a moment.');
+      }
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+      const arrayBuffer = await ocrFile.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const totalPages = pdf.numPages;
+
+      let pagesToProcess: number[] = [];
+      if (ocrPageNum === 'all') {
+        for (let i = 1; i <= totalPages; i++) {
+          pagesToProcess.push(i);
+        }
+      } else {
+        pagesToProcess = [Number(ocrPageNum)];
+      }
+
+      let fullExtractedText = '';
+      
+      setOcrStatus('Loading Tesseract OCR engine...');
+      setOcrProgress(5);
+
+      for (let index = 0; index < pagesToProcess.length; index++) {
+        const pageIdx = pagesToProcess[index];
+        setOcrStatus(`Rendering Page ${pageIdx} of ${totalPages} to canvas...`);
+        setOcrProgress(Math.round((index / pagesToProcess.length) * 100));
+
+        const page = await pdf.getPage(pageIdx);
+        const viewport = page.getViewport({ scale: 2.0 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Could not create 2D canvas context');
+
+        await page.render({ canvasContext: ctx, viewport }).promise;
+
+        setOcrStatus(`Performing OCR on Page ${pageIdx}...`);
+
+        const result = await Tesseract.recognize(
+          canvas,
+          ocrLanguage,
+          {
+            logger: m => {
+              if (m.status === 'recognizing text') {
+                const subProgress = Math.round(m.progress * 100);
+                const overallProgress = Math.round(((index + m.progress) / pagesToProcess.length) * 100);
+                setOcrProgress(overallProgress);
+                setOcrStatus(`OCR Page ${pageIdx}: ${subProgress}% complete`);
+              }
+            }
+          }
+        );
+
+        fullExtractedText += `--- PAGE ${pageIdx} ---\n\n${result.data.text}\n\n`;
+      }
+
+      setOcrText(fullExtractedText.trim());
+      setOcrProgress(100);
+      setOcrStatus('Completed!');
+      notify('Text extraction complete! ✓', 'success');
+    } catch (e: any) {
+      console.error('OCR Error:', e);
+      notify(`OCR Error: ${e.message}`, 'error');
+      setOcrStatus(`Error: ${e.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [ocrFile, ocrLanguage, ocrPageNum, notify]);
+
   // --- Drag and Drop Reordering State ---
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
@@ -156,6 +836,20 @@ export default function PdfTools() {
     setCompressFile(null);
     setCompressResult(null);
     setCompressProgress(null);
+    
+    // Reset Drawing States
+    if (annotatePdfUrl) URL.revokeObjectURL(annotatePdfUrl);
+    setAnnotateFile(null);
+    setAnnotatePdfUrl(null);
+    setIsAnnotatorFullscreen(false);
+
+    // Reset OCR States
+    setOcrFile(null);
+    setOcrProgress(0);
+    setOcrText('');
+    setOcrStatus('');
+    setOcrPagesTotal(0);
+
     notify('Workspace cleared', 'info');
   };
 
@@ -442,9 +1136,16 @@ export default function PdfTools() {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           await page.render({ canvasContext: ctx, viewport }).promise;
-          // Use PNG for lossless output when format is png, high-quality JPEG otherwise
-          const mimeType = pdfToImgFormat === 'png' ? 'image/png' : `image/${pdfToImgFormat}`;
-          const quality = pdfToImgFormat === 'png' ? undefined : (pdfToImgQuality / 100);
+          // Calculate dynamic MIME type and quality based on all supported formats
+          let mimeType = 'image/png';
+          if (pdfToImgFormat === 'jpeg') mimeType = 'image/jpeg';
+          else if (pdfToImgFormat === 'webp') mimeType = 'image/webp';
+          else if (pdfToImgFormat === 'bmp') mimeType = 'image/bmp';
+          else if (pdfToImgFormat === 'gif') mimeType = 'image/gif';
+          else if (pdfToImgFormat === 'tiff') mimeType = 'image/tiff';
+
+          const hasQuality = ['jpeg', 'webp'].includes(pdfToImgFormat);
+          const quality = hasQuality ? (pdfToImgQuality / 100) : undefined;
           const thumbnail = quality !== undefined
             ? canvas.toDataURL(mimeType, quality)
             : canvas.toDataURL(mimeType);
@@ -535,6 +1236,13 @@ export default function PdfTools() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [zoomGallery]);
+
+  // Re-process PDF pages dynamically when target extraction format or quality changes
+  useEffect(() => {
+    if (pdfToImgFile) {
+      handlePdfToImgUpload(pdfToImgFile);
+    }
+  }, [pdfToImgFormat, pdfToImgQuality]);
 
   // --- Office to PDF Local Processing Core ---
   const handleOfficeUpload = async (file: File) => {
@@ -885,6 +1593,11 @@ export default function PdfTools() {
         }
       }
 
+      if (editorMetadata.title) compiledPdf.setTitle(editorMetadata.title);
+      if (editorMetadata.author) compiledPdf.setAuthor(editorMetadata.author);
+      if (editorMetadata.subject) compiledPdf.setSubject(editorMetadata.subject);
+      if (editorMetadata.keywords) compiledPdf.setKeywords(editorMetadata.keywords.split(',').map((k: string) => k.trim()).filter((k: string) => k));
+
       const pdfBytes = await compiledPdf.save();
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
@@ -1051,35 +1764,45 @@ export default function PdfTools() {
           </p>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex justify-center mb-8 px-2">
-          <div className="flex flex-nowrap justify-center p-2 bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl gap-1.5 w-full shadow-inner overflow-hidden">
-            {(['editor', 'to-images', 'from-images', 'compress', 'office-to-pdf'] as const).map(tab => {
-              const active = activeTab === tab;
-              const labels = {
-                'editor': { text: 'Page Management', mobileText: 'Manage', icon: Layers },
-                'to-images': { text: 'PDF to Images', mobileText: 'PDF→Img', icon: FileImage },
-                'from-images': { text: 'Images to PDF', mobileText: 'Img→PDF', icon: ImageIcon },
-                'compress': { text: 'Compress PDF', mobileText: 'Compress', icon: FileDown },
-                'office-to-pdf': { text: 'Office to PDF', mobileText: 'Office', icon: FileText }
-              };
-              const Icon = labels[tab].icon;
-              return (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => { setActiveTab(tab); clearWorkspace(); }}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 sm:px-5 py-3 rounded-xl text-sm sm:text-base font-semibold whitespace-nowrap transition-all duration-200 ${active
-                    ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-white shadow-md'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-700/60'
+        {/* PDF Tool Navigation — Flowing Pills */}
+        <div className="mb-8">
+          <div className="flex flex-wrap items-center justify-center gap-2 p-2.5 bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm">
+            {(() => {
+              const tools: { tab: ActiveTab; label: string; icon: any; color: string }[] = [
+                { tab: 'annotate',     label: 'Annotate',      icon: Edit3,          color: 'from-violet-500 to-purple-600' },
+                { tab: 'editor',       label: 'Organize',       icon: Layers,         color: 'from-blue-500 to-indigo-600' },
+                { tab: 'split',        label: 'Split',          icon: Crop,           color: 'from-cyan-500 to-blue-600' },
+                { tab: 'transform',    label: 'Rotate & Crop',  icon: RotateCw,       color: 'from-teal-500 to-emerald-600' },
+                { tab: 'flatten',      label: 'Flatten',        icon: Minimize2,      color: 'from-green-500 to-emerald-600' },
+                { tab: 'grayscale',    label: 'Grayscale',      icon: Contrast,       color: 'from-slate-400 to-slate-600' },
+                { tab: 'compress',     label: 'Compress',       icon: FileDown,       color: 'from-orange-500 to-amber-600' },
+                { tab: 'watermark',    label: 'Watermark',      icon: Award,          color: 'from-rose-500 to-pink-600' },
+                { tab: 'page-numbers', label: 'Page Nums',      icon: GripHorizontal, color: 'from-fuchsia-500 to-rose-600' },
+                { tab: 'metadata',     label: 'Metadata',       icon: FileText,       color: 'from-pink-500 to-fuchsia-600' },
+                { tab: 'to-images',    label: 'PDF → Images',   icon: FileImage,      color: 'from-sky-500 to-blue-600' },
+                { tab: 'from-images',  label: 'Images → PDF',   icon: ImageIcon,      color: 'from-indigo-500 to-violet-600' },
+                { tab: 'office-to-pdf',label: 'Office → PDF',   icon: FileText,       color: 'from-amber-500 to-orange-600' },
+                { tab: 'ocr',          label: 'Extract Text',   icon: Type,           color: 'from-lime-500 to-green-600' },
+              ];
+              return tools.map(({ tab, label, icon: Icon, color }) => {
+                const isActive = activeTab === tab;
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => { setActiveTab(tab); clearWorkspace(); }}
+                    className={`group relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-300 ${
+                      isActive
+                        ? `bg-gradient-to-r ${color} text-white shadow-md shadow-primary-500/20 scale-105`
+                        : 'bg-white dark:bg-surface-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-700 border border-slate-200/80 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600'
                     }`}
-                >
-                  <Icon size={17} className="flex-shrink-0" />
-                  <span className="hidden sm:inline">{labels[tab].text}</span>
-                  <span className="inline sm:hidden">{labels[tab].mobileText}</span>
-                </button>
-              );
-            })}
+                  >
+                    <Icon size={14} className={isActive ? 'animate-pulse-slow' : 'text-slate-400 dark:text-slate-500 group-hover:text-primary-500 transition-colors'} />
+                    <span>{label}</span>
+                  </button>
+                );
+              });
+            })()}
           </div>
         </div>
 
@@ -1087,7 +1810,97 @@ export default function PdfTools() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
           {/* Main workspace area */}
-          <div className="lg:col-span-8 space-y-6">
+          <div className="lg:col-span-8 xl:col-span-9 space-y-6">
+
+            {/* Split Page 0: Annotate PDF */}
+            {activeTab === 'annotate' && (
+              <>
+                {!annotateFile || !annotatePdfUrl ? (
+                  <Card className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-black/10 dark:border-white/20 animate-fade-in">
+                    <div className="w-16 h-16 rounded-2xl bg-black/5 dark:bg-white/10 flex items-center justify-center text-primary-400 mb-4">
+                      <Edit3 size={32} />
+                    </div>
+                    <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Drop a PDF to draw & annotate</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm mb-4">
+                      Upload a PDF to draw, highlight, type text, and add rich annotations interactively in your browser.
+                    </p>
+                    <label className="btn-base bg-primary-500 hover:bg-primary-600 text-white px-5 py-2.5 rounded-xl cursor-pointer shadow-lg hover:shadow-primary-500/25 transition-all">
+                      Open PDF for Annotation
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        className="hidden"
+                        onChange={e => {
+                          if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0];
+                            setAnnotateFile(file);
+                            setAnnotatePdfUrl(URL.createObjectURL(file));
+                            setIsAnnotatorFullscreen(true);
+                          }
+                        }}
+                      />
+                    </label>
+                  </Card>
+                ) : (
+                  <Card className={`flex flex-col space-y-4 animate-fade-in ${isAnnotatorFullscreen ? 'fixed inset-0 z-[100] m-0 p-0 rounded-none w-screen h-screen border-0 bg-white dark:bg-slate-900 shadow-none' : ''}`}>
+                    <div className={`flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-4 ${isAnnotatorFullscreen ? 'p-4 bg-slate-50 dark:bg-slate-800' : ''}`}>
+                      <div>
+                        <h3 className="font-semibold text-slate-900 dark:text-white">
+                          Drawing & Annotation Tools
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1 font-medium">
+                          Editing {annotateFile.name} ({(annotateFile.size / (1024 * 1024)).toFixed(2)} MB)
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isAnnotatorFullscreen && (
+                          <Button
+                            size="sm"
+                            onClick={handleSaveAnnotatedPdf}
+                            className="bg-primary-600 hover:bg-primary-700 text-white shadow-md hover:shadow-primary-600/30 font-semibold hidden sm:flex"
+                          >
+                            <Save size={16} className="mr-1.5" /> Save PDF
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setIsAnnotatorFullscreen(!isAnnotatorFullscreen)}
+                          className="text-slate-500 hover:text-slate-800 dark:hover:text-white"
+                        >
+                          {isAnnotatorFullscreen ? <Minimize2 size={16} className="mr-1.5" /> : <Maximize2 size={16} className="mr-1.5" />}
+                          <span className="hidden sm:inline">{isAnnotatorFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (annotatePdfUrl) URL.revokeObjectURL(annotatePdfUrl);
+                            setAnnotateFile(null);
+                            setAnnotatePdfUrl(null);
+                            setIsAnnotatorFullscreen(false);
+                          }}
+                          className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                        >
+                          <Trash2 size={16} className="mr-1.5" /> Close
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className={`relative border border-slate-300 dark:border-slate-700 overflow-hidden shadow-inner ${isAnnotatorFullscreen ? 'flex-1 rounded-none border-0' : 'rounded-xl'}`}>
+                      <iframe
+                        ref={annotateIframeRef}
+                        src={`/pdfjs-annotation-viewer/web/viewer.html?file=${encodeURIComponent(annotatePdfUrl)}#pagemode=none&zoom=page-fit`}
+                        className={`w-full border-0 bg-slate-100 dark:bg-slate-800 ${isAnnotatorFullscreen ? 'h-full' : 'h-[75vh] min-h-[800px] xl:h-[85vh]'}`}
+                        title="Interactive PDF Annotator"
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
+                        onLoad={handleAnnotateIframeLoad}
+                      />
+                    </div>
+                  </Card>
+                )}
+              </>
+            )}
 
             {/* Split Page 4: Office to PDF */}
             {activeTab === 'office-to-pdf' && (
@@ -1196,9 +2009,23 @@ export default function PdfTools() {
                           ))}
                         </div>
 
+                        <label className="text-xs font-semibold text-primary-500 hover:text-primary-600 flex items-center gap-1 cursor-pointer mr-2 transition-colors">
+                          <Plus size={14} /> Add Files
+                          <input
+                            type="file"
+                            multiple
+                            accept="application/pdf,image/*"
+                            className="hidden"
+                            onChange={e => e.target.files && handlePdfUpload(Array.from(e.target.files))}
+                          />
+                        </label>
+
                         <button
-                          onClick={() => handlePdfUpload([])}
-                          className="text-xs text-red-450 hover:text-red-400 flex items-center gap-1"
+                          onClick={() => {
+                            setPdfPages([]);
+                            notify('All pages cleared from workspace', 'info');
+                          }}
+                          className="text-xs text-red-450 hover:text-red-400 flex items-center gap-1 transition-colors"
                         >
                           <Trash2 size={12} /> Clear all
                         </button>
@@ -1594,6 +2421,10 @@ export default function PdfTools() {
                       </button>
                     </div>
 
+                    <div className="flex justify-center py-2 mb-4">
+                      <PdfLivePreview file={compressFile} />
+                    </div>
+
                     {/* Progress indicator */}
                     {compressProgress && (
                       <div className="py-6 space-y-3 animate-pulse">
@@ -1696,6 +2527,695 @@ export default function PdfTools() {
               </>
             )}
 
+            {/* Split Page 6: OCR Text Extractor */}
+            {activeTab === 'ocr' && (
+              <>
+                {!ocrFile ? (
+                  <Card className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-black/10 dark:border-white/20 animate-fade-in">
+                    <div className="w-16 h-16 rounded-2xl bg-black/5 dark:bg-white/10 flex items-center justify-center text-primary-400 mb-4">
+                      <Languages size={32} />
+                    </div>
+                    <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Drop your PDF here for OCR</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm mb-4">
+                      Upload any PDF document to scan and extract editable text in English, Spanish, French, German, or Portuguese. All processing executes 100% locally.
+                    </p>
+                    <label className="btn-base bg-primary-500 hover:bg-primary-600 text-white px-5 py-2.5 rounded-xl cursor-pointer shadow-lg hover:shadow-primary-500/25 transition-all">
+                      Browse PDF File
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        className="hidden"
+                        onChange={e => {
+                          if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0];
+                            setOcrFile(file);
+                            setOcrProgress(0);
+                            setOcrText('');
+                            setOcrStatus('File loaded. Configure settings in the sidebar to start.');
+                            const pdfjsLib = (window as any).pdfjsLib;
+                            if (pdfjsLib) {
+                              file.arrayBuffer().then(buf => {
+                                pdfjsLib.getDocument({ data: buf }).promise.then((pdf: any) => {
+                                  setOcrPagesTotal(pdf.numPages);
+                                });
+                              });
+                            }
+                          }
+                        }}
+                      />
+                    </label>
+                  </Card>
+                ) : (
+                  <Card className="space-y-6 animate-fade-in">
+                    <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-4">
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-slate-900 dark:text-white truncate">
+                          File: {ocrFile.name}
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Size: {(ocrFile.size / (1024 * 1024)).toFixed(2)} MB • Pages: {ocrPagesTotal || 'Loading...'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setOcrFile(null);
+                          setOcrProgress(0);
+                          setOcrText('');
+                          setOcrStatus('');
+                          setOcrPagesTotal(0);
+                        }}
+                        className="text-xs text-red-500 hover:text-red-400 font-semibold"
+                      >
+                        Change File
+                      </button>
+                    </div>
+
+                    <div className="flex justify-center py-4">
+                      <PdfLivePreview file={ocrFile} />
+                    </div>
+
+                    {/* Progress Bar (Active) */}
+                    {isProcessing && (
+                      <div className="p-4 bg-primary-500/5 border border-primary-500/10 rounded-xl space-y-3">
+                        <div className="flex items-center justify-between text-xs font-semibold">
+                          <span className="text-primary-600 dark:text-primary-400 animate-pulse">
+                            {ocrStatus}
+                          </span>
+                          <span className="text-primary-600 dark:text-primary-400">
+                            {ocrProgress}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                          <div
+                            className="bg-gradient-to-r from-primary-500 to-indigo-600 h-2.5 rounded-full transition-all duration-300"
+                            style={{ width: `${ocrProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Completed / Initial Result Box */}
+                    {ocrText ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                            Extracted Text Output
+                          </h4>
+                          <span className="text-[10px] bg-emerald-500/15 text-emerald-500 font-semibold px-2 py-0.5 rounded-full">
+                            OCR Complete
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <textarea
+                            readOnly
+                            value={ocrText}
+                            className="w-full min-h-[400px] max-h-[600px] p-4 bg-slate-50 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-xl text-sm font-mono text-slate-850 dark:text-slate-200 focus:outline-none leading-relaxed"
+                          />
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                          <Button
+                            onClick={() => {
+                              navigator.clipboard.writeText(ocrText);
+                              notify('Copied text to clipboard! ✓', 'success');
+                            }}
+                            className="flex-1 py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-primary-500 to-indigo-600 text-white font-medium rounded-xl shadow-md hover:shadow-primary-500/25"
+                          >
+                            <Check size={16} /> Copy to Clipboard
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              const blob = new Blob([ocrText], { type: 'text/plain;charset=utf-8' });
+                              const url = URL.createObjectURL(blob);
+                              const link = document.createElement('a');
+                              link.href = url;
+                              link.download = `${ocrFile.name.replace('.pdf', '')}_extracted_text.txt`;
+                              link.click();
+                              URL.revokeObjectURL(url);
+                              notify('Downloaded text file! ✓', 'success');
+                            }}
+                            className="flex-1 py-3 flex items-center justify-center gap-2 border border-black/10 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5"
+                          >
+                            <Download size={16} /> Download as .txt
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      !isProcessing && (
+                        <div className="text-center py-12 border border-dashed border-black/10 dark:border-white/10 rounded-xl space-y-4 bg-slate-50/50 dark:bg-surface-800/20">
+                          <div className="inline-flex p-3.5 rounded-full bg-primary-500/5 text-primary-500">
+                            <Type size={28} />
+                          </div>
+                          <div className="space-y-1.5">
+                            <h4 className="text-sm font-bold text-slate-850 dark:text-slate-200">
+                              OCR Ready to Extract
+                            </h4>
+                            <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </Card>
+                )}
+              </>
+            )}
+
+            {/* Split Page 6: Watermark PDF */}
+            {activeTab === 'watermark' && (
+              <>
+                {!watermarkFile ? (
+                  <Card className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-black/10 dark:border-white/20 animate-fade-in">
+                    <div className="w-16 h-16 rounded-2xl bg-black/5 dark:bg-white/10 flex items-center justify-center text-primary-400 mb-4">
+                      <Stamp size={32} />
+                    </div>
+                    <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Drop a PDF to Watermark</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm mb-4">
+                      Upload your PDF to overlay custom text watermarks securely in your browser.
+                    </p>
+                    <label className="btn-base bg-primary-500 hover:bg-primary-600 text-white px-5 py-2.5 rounded-xl cursor-pointer shadow-lg hover:shadow-primary-500/25 transition-all">
+                      Open PDF for Watermarking
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        className="hidden"
+                        onChange={e => {
+                          if (e.target.files && e.target.files[0]) {
+                            setWatermarkFile(e.target.files[0]);
+                            setWatermarkResultUrl(null);
+                          }
+                        }}
+                      />
+                    </label>
+                  </Card>
+                ) : (
+                  <Card className="flex flex-col space-y-4 animate-fade-in">
+                    <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-4">
+                      <div>
+                        <h3 className="font-semibold text-slate-900 dark:text-white">
+                          PDF Watermark Engine
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1 font-medium">
+                          Target: {watermarkFile.name} ({(watermarkFile.size / (1024 * 1024)).toFixed(2)} MB)
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setWatermarkFile(null);
+                          if (watermarkResultUrl) URL.revokeObjectURL(watermarkResultUrl);
+                          setWatermarkResultUrl(null);
+                        }}
+                        className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                      >
+                        <Trash2 size={16} className="mr-1.5" /> Close File
+                      </Button>
+                    </div>
+
+                    <div className="flex justify-center py-4">
+                      <PdfLivePreview file={watermarkFile} renderOverlay={() => (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+                          <span style={{ 
+                            transform: `rotate(${watermarkLayout === 'centered' ? '-35deg' : '0deg'})`, 
+                            color: watermarkColor, 
+                            opacity: watermarkOpacity, 
+                            fontSize: `${watermarkSize/4}px`,
+                            fontWeight: 'bold',
+                            fontFamily: 'Helvetica, Arial, sans-serif'
+                          }}>
+                            {watermarkText}
+                          </span>
+                        </div>
+                      )} />
+                    </div>
+
+                    {watermarkResultUrl ? (
+                      <div className="space-y-4 animate-fade-in">
+                        <div className="relative border border-slate-300 dark:border-slate-700 rounded-xl overflow-hidden shadow-inner">
+                          <iframe
+                            src={`${watermarkResultUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                            className="w-full h-[600px] border-0 bg-slate-100 dark:bg-slate-800"
+                            title="Watermarked PDF Preview"
+                          />
+                        </div>
+                        <div className="flex items-center gap-4 pt-2">
+                          <Button
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = watermarkResultUrl;
+                              link.download = `${watermarkFile.name.replace('.pdf', '')}_watermarked.pdf`;
+                              link.click();
+                            }}
+                            className="flex-1 py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-primary-500 to-indigo-600 hover:from-primary-600 hover:to-indigo-700 text-white font-medium shadow-md hover:shadow-primary-500/25 transition-all"
+                          >
+                            <Download size={18} /> Download Watermarked PDF
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 border border-dashed border-black/10 dark:border-white/10 rounded-xl space-y-4 bg-slate-50/50 dark:bg-surface-800/20">
+                        <div className="inline-flex p-3.5 rounded-full bg-primary-500/5 text-primary-500">
+                          <Stamp size={28} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <h4 className="text-sm font-bold text-slate-850 dark:text-slate-200">
+                            Ready to Apply Watermark
+                          </h4>
+                          <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                            Configure your watermark text, color, opacity, and layout in the right sidebar. Then click "Apply Watermark" to stamp your document.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </Card>
+                )}
+              </>
+            )}
+
+            {/* Split PDF Workspace */}
+            {activeTab === 'split' && (
+              <>
+                {!splitFile ? (
+                  <Card className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-black/10 dark:border-white/20 animate-fade-in">
+                    <div className="w-16 h-16 rounded-2xl bg-black/5 dark:bg-white/10 flex items-center justify-center text-primary-400 mb-4">
+                      <Crop size={32} />
+                    </div>
+                    <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Split a PDF</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm mb-4">
+                      Upload a PDF to split it by page range, every N pages, or extract specific pages.
+                    </p>
+                    <label className="btn-base bg-primary-500 hover:bg-primary-600 text-white px-5 py-2.5 rounded-xl cursor-pointer shadow-lg transition-all">
+                      Open PDF to Split
+                      <input type="file" accept="application/pdf" className="hidden" onChange={e => e.target.files?.[0] && handleLoadSplitFile(e.target.files[0])} />
+                    </label>
+                  </Card>
+                ) : (
+                  <Card className="space-y-4 animate-fade-in">
+                    <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-4">
+                      <div>
+                        <h3 className="font-semibold text-slate-900 dark:text-white">Split PDF Engine</h3>
+                        <p className="text-xs text-slate-500 mt-1">{splitFile.name} — {splitTotalPages} pages total</p>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => { setSplitFile(null); setSplitResults([]); }} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10">
+                        <Trash2 size={16} className="mr-1.5" /> Close
+                      </Button>
+                    </div>
+
+                    <div className="flex justify-center py-4">
+                      <PdfLivePreview file={splitFile} />
+                    </div>
+
+                    {splitResults.length > 0 ? (
+                      <div className="space-y-3 animate-fade-in">
+                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">✓ {splitResults.length} file(s) ready:</p>
+                        {splitResults.map((r, i) => (
+                          <div key={i} className="flex items-center justify-between bg-slate-50 dark:bg-surface-800/50 rounded-xl p-3 border border-black/5 dark:border-white/5">
+                            <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 min-w-0">
+                              <FileText size={16} className="text-primary-500 shrink-0" />
+                              <span className="truncate">{r.name}</span>
+                            </div>
+                            <a href={r.url} download={r.name} className="shrink-0 ml-2 text-xs text-primary-500 font-semibold hover:underline flex items-center gap-1">
+                              <Download size={14} /> Download
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-10 border border-dashed border-black/10 dark:border-white/10 rounded-xl bg-slate-50/50 dark:bg-surface-800/20">
+                        <Crop size={28} className="mx-auto text-primary-400 mb-2" />
+                        <p className="text-sm text-slate-500">Configure split options in the sidebar and click "Split PDF"</p>
+                      </div>
+                    )}
+                  </Card>
+                )}
+              </>
+            )}
+
+            {/* Page Numbers Workspace */}
+            {activeTab === 'page-numbers' && (
+              <>
+                {!pageNumFile ? (
+                  <Card className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-black/10 dark:border-white/20 animate-fade-in">
+                    <div className="w-16 h-16 rounded-2xl bg-black/5 dark:bg-white/10 flex items-center justify-center text-primary-400 mb-4">
+                      <GripHorizontal size={32} />
+                    </div>
+                    <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Add Page Numbers</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm mb-4">
+                      Stamp professional page numbers onto every page of your PDF. Fully customizable position, format and size.
+                    </p>
+                    <label className="btn-base bg-primary-500 hover:bg-primary-600 text-white px-5 py-2.5 rounded-xl cursor-pointer shadow-lg transition-all">
+                      Open PDF
+                      <input type="file" accept="application/pdf" className="hidden" onChange={e => e.target.files?.[0] && setPageNumFile(e.target.files[0])} />
+                    </label>
+                  </Card>
+                ) : (
+                  <Card className="space-y-4 animate-fade-in">
+                    <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-4">
+                      <div>
+                        <h3 className="font-semibold text-slate-900 dark:text-white">Page Numbers Engine</h3>
+                        <p className="text-xs text-slate-500 mt-1">{pageNumFile.name}</p>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => { setPageNumFile(null); if (pageNumResultUrl) URL.revokeObjectURL(pageNumResultUrl); setPageNumResultUrl(null); }} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10">
+                        <Trash2 size={16} className="mr-1.5" /> Close
+                      </Button>
+                    </div>
+
+                    <div className="flex justify-center py-4">
+                      <PdfLivePreview file={pageNumFile} renderOverlay={() => (
+                        <div className={`absolute inset-0 pointer-events-none p-2 flex flex-col ${pageNumPosition.includes('top') ? 'justify-start' : 'justify-end'} ${pageNumPosition.includes('right') ? 'items-end' : 'items-center'}`}>
+                          <span style={{ fontSize: `${pageNumSize/4}px`, color: 'black', opacity: 0.7, fontFamily: 'Helvetica' }}>
+                            {pageNumFormat.replace('N', '1').replace('n', '1')}
+                          </span>
+                        </div>
+                      )} />
+                    </div>
+                    {pageNumResultUrl ? (
+                      <div className="space-y-4">
+                        <iframe src={`${pageNumResultUrl}#toolbar=0&navpanes=0`} className="w-full h-[500px] border border-slate-300 dark:border-slate-700 rounded-xl" title="Numbered PDF Preview" />
+                        <Button onClick={() => { const a = document.createElement('a'); a.href = pageNumResultUrl!; a.download = pageNumFile.name.replace('.pdf', '_numbered.pdf'); a.click(); }} className="w-full py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-primary-500 to-indigo-600 text-white font-medium">
+                          <Download size={18} /> Download Numbered PDF
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="text-center py-10 border border-dashed border-black/10 dark:border-white/10 rounded-xl bg-slate-50/50 dark:bg-surface-800/20">
+                        <GripHorizontal size={28} className="mx-auto text-primary-400 mb-2" />
+                        <p className="text-sm text-slate-500">Configure options in the sidebar and click "Apply Page Numbers"</p>
+                      </div>
+                    )}
+                  </Card>
+                )}
+              </>
+            )}
+
+
+            {/* Transform (Rotate + Crop) Workspace */}
+            {activeTab === 'transform' && (
+              <>
+                {!transformFile ? (
+                  <Card className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-black/10 dark:border-white/20 animate-fade-in">
+                    <div className="w-16 h-16 rounded-2xl bg-black/5 dark:bg-white/10 flex items-center justify-center text-primary-400 mb-4">
+                      <RotateCw size={32} />
+                    </div>
+                    <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Rotate & Crop PDF</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm mb-4">
+                      Rotate pages and trim margins in a single pass. Configure both transforms in the sidebar and apply at once.
+                    </p>
+                    <label className="btn-base bg-primary-500 hover:bg-primary-600 text-white px-5 py-2.5 rounded-xl cursor-pointer shadow-lg transition-all">
+                      Open PDF
+                      <input type="file" accept="application/pdf" className="hidden" onChange={e => e.target.files?.[0] && handleLoadTransformFile(e.target.files[0])} />
+                    </label>
+                  </Card>
+                ) : (
+                  <Card className="space-y-5 animate-fade-in">
+                    <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-4">
+                      <div>
+                        <h3 className="font-semibold text-slate-900 dark:text-white">Rotate & Crop Engine</h3>
+                        <p className="text-xs text-slate-500 mt-1">{transformFile.name} &mdash; {Math.round(transformPageWidth)}×{Math.round(transformPageHeight)} pts</p>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => { setTransformFile(null); if (transformResultUrl) URL.revokeObjectURL(transformResultUrl); setTransformResultUrl(null); setTransformPreviewUrl(null); }} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10">
+                        <Trash2 size={16} className="mr-1.5" /> Close
+                      </Button>
+                    </div>
+
+                    {/* Page preview with crop overlay */}
+                    {transformPreviewUrl && (
+                      <div className="relative bg-slate-100 dark:bg-slate-800 rounded-xl overflow-hidden flex flex-col items-center justify-center p-3">
+                        <div className="relative inline-block shadow-xl select-none" style={{ transform: `rotate(${rotateAngle}deg)`, transition: 'transform 0.3s ease' }}>
+                          <img 
+                            ref={transformPreviewRef}
+                            src={transformPreviewUrl} 
+                            alt="Page preview" 
+                            className="block max-h-[360px] w-auto rounded pointer-events-none" 
+                            draggable={false}
+                          />
+                          
+                          {/* Darkened overlay outside crop area */}
+                          <div className="absolute inset-0 pointer-events-none" style={{
+                            borderTop: `${(cropTop / (transformPageHeight / 2.8346)) * 100}% solid rgba(0,0,0,0.5)`,
+                            borderBottom: `${(cropBottom / (transformPageHeight / 2.8346)) * 100}% solid rgba(0,0,0,0.5)`,
+                            borderLeft: `${(cropLeft / (transformPageWidth / 2.8346)) * 100}% solid rgba(0,0,0,0.5)`,
+                            borderRight: `${(cropRight / (transformPageWidth / 2.8346)) * 100}% solid rgba(0,0,0,0.5)`,
+                            boxSizing: 'border-box',
+                          }} />
+                          
+                          {/* Inner Crop Box */}
+                          <div style={{
+                            position: 'absolute',
+                            top: `${(cropTop / (transformPageHeight / 2.8346)) * 100}%`,
+                            bottom: `${(cropBottom / (transformPageHeight / 2.8346)) * 100}%`,
+                            left: `${(cropLeft / (transformPageWidth / 2.8346)) * 100}%`,
+                            right: `${(cropRight / (transformPageWidth / 2.8346)) * 100}%`,
+                            border: '2px dashed rgba(255,255,255,0.9)',
+                            boxShadow: '0 0 0 1px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(0,0,0,0.3)',
+                          }}>
+                            
+                            {/* Drag Handles */}
+                            <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border border-slate-400 rounded-full cursor-nwse-resize z-10" onMouseDown={() => setCropDragEdge('top-left')} />
+                            <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border border-slate-400 rounded-full cursor-ns-resize z-10" onMouseDown={() => setCropDragEdge('top')} />
+                            <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border border-slate-400 rounded-full cursor-nesw-resize z-10" onMouseDown={() => setCropDragEdge('top-right')} />
+                            
+                            <div className="absolute top-1/2 -translate-y-1/2 -left-1.5 w-3 h-3 bg-white border border-slate-400 rounded-full cursor-ew-resize z-10" onMouseDown={() => setCropDragEdge('left')} />
+                            <div className="absolute top-1/2 -translate-y-1/2 -right-1.5 w-3 h-3 bg-white border border-slate-400 rounded-full cursor-ew-resize z-10" onMouseDown={() => setCropDragEdge('right')} />
+                            
+                            <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border border-slate-400 rounded-full cursor-nesw-resize z-10" onMouseDown={() => setCropDragEdge('bottom-left')} />
+                            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border border-slate-400 rounded-full cursor-ns-resize z-10" onMouseDown={() => setCropDragEdge('bottom')} />
+                            <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border border-slate-400 rounded-full cursor-nwse-resize z-10" onMouseDown={() => setCropDragEdge('bottom-right')} />
+                          </div>
+                        </div>
+                        <p className="mt-3 text-[10px] text-slate-500 font-medium tracking-wide uppercase">Drag handles to crop • Preview rotates live</p>
+                      </div>
+                    )}
+
+                    {transformResultUrl ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
+                          <CheckCircle2 size={18} /> Transformed PDF ready!
+                        </div>
+                        <Button onClick={() => { const a = document.createElement('a'); a.href = transformResultUrl!; a.download = transformFile.name.replace('.pdf', '_transformed.pdf'); a.click(); }} className="w-full py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-medium">
+                          <Download size={18} /> Download Transformed PDF
+                        </Button>
+                        <Button variant="ghost" onClick={() => setTransformResultUrl(null)} className="w-full text-sm text-slate-500">Re-apply with different settings</Button>
+                      </div>
+                    ) : (
+                      <Button onClick={handleApplyTransform} disabled={isProcessing} className="w-full py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-medium">
+                        {isProcessing ? <RefreshCw size={16} className="animate-spin" /> : <RotateCw size={16} />}
+                        {isProcessing ? 'Applying...' : 'Apply Rotate & Crop'}
+                      </Button>
+                    )}
+                  </Card>
+                )}
+              </>
+            )}
+
+            {/* Edit PDF Metadata Workspace */}
+            {activeTab === 'metadata' && (
+              <>
+                {!metaFile ? (
+                  <Card className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-black/10 dark:border-white/20 animate-fade-in">
+                    <div className="w-16 h-16 rounded-2xl bg-black/5 dark:bg-white/10 flex items-center justify-center text-primary-400 mb-4">
+                      <FileText size={32} />
+                    </div>
+                    <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Edit PDF Metadata</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm mb-4">
+                      Read and update a PDF's title, author, subject, keywords and creator fields. Perfect for document organization.
+                    </p>
+                    <label className="btn-base bg-primary-500 hover:bg-primary-600 text-white px-5 py-2.5 rounded-xl cursor-pointer shadow-lg transition-all">
+                      Open PDF
+                      <input type="file" accept="application/pdf" className="hidden" onChange={e => e.target.files?.[0] && handleLoadMetaFile(e.target.files[0])} />
+                    </label>
+                  </Card>
+                ) : (
+                  <Card className="space-y-5 animate-fade-in">
+                    <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-4">
+                      <div>
+                        <h3 className="font-semibold text-slate-900 dark:text-white">PDF Metadata Editor</h3>
+                        <p className="text-xs text-slate-500 mt-1">{metaFile.name}</p>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => { setMetaFile(null); if (metaResultUrl) URL.revokeObjectURL(metaResultUrl); setMetaResultUrl(null); }} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10">
+                        <Trash2 size={16} className="mr-1.5" /> Close
+                      </Button>
+                    </div>
+
+                    <div className="flex justify-center py-4">
+                      <PdfLivePreview file={metaFile} />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4">
+                      {[
+                        { label: 'Title', value: metaTitle, set: setMetaTitle, placeholder: 'Document title...' },
+                        { label: 'Author', value: metaAuthor, set: setMetaAuthor, placeholder: 'Author name...' },
+                        { label: 'Subject', value: metaSubject, set: setMetaSubject, placeholder: 'Document subject...' },
+                        { label: 'Keywords', value: metaKeywords, set: setMetaKeywords, placeholder: 'keyword1, keyword2...' },
+                        { label: 'Creator App', value: metaCreator, set: setMetaCreator, placeholder: 'e.g. Microsoft Word' },
+                      ].map(f => (
+                        <div key={f.label} className="space-y-1.5">
+                          <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">{f.label}</label>
+                          <input
+                            type="text"
+                            value={f.value}
+                            onChange={e => f.set(e.target.value)}
+                            placeholder={f.placeholder}
+                            className="w-full bg-white dark:bg-surface-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <Button onClick={handleSaveMetadata} disabled={isProcessing} className="w-full py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-primary-500 to-indigo-600 text-white font-medium">
+                      {isProcessing ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
+                      {isProcessing ? 'Saving...' : 'Save Metadata & Download'}
+                    </Button>
+
+                    {metaResultUrl && (
+                      <p className="text-xs text-center text-emerald-500 font-medium">✓ Metadata saved! File downloaded automatically.</p>
+                    )}
+                  </Card>
+                )}
+              </>
+            )}
+
+
+            {/* Flatten PDF Workspace */}
+            {activeTab === 'flatten' && (
+              <>
+                {!flattenFile ? (
+                  <Card className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-black/10 dark:border-white/20 animate-fade-in">
+                    <div className="w-16 h-16 rounded-2xl bg-black/5 dark:bg-white/10 flex items-center justify-center text-primary-400 mb-4">
+                      <Minimize2 size={32} />
+                    </div>
+                    <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Flatten PDF</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm mb-4">
+                      Bake all form fields and annotations into static content. Prevents further editing of fillable fields.
+                    </p>
+                    <label className="btn-base bg-primary-500 hover:bg-primary-600 text-white px-5 py-2.5 rounded-xl cursor-pointer shadow-lg transition-all">
+                      Open PDF to Flatten
+                      <input type="file" accept="application/pdf" className="hidden" onChange={e => e.target.files?.[0] && setFlattenFile(e.target.files[0])} />
+                    </label>
+                  </Card>
+                ) : (
+                  <Card className="space-y-5 animate-fade-in">
+                    <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-4">
+                      <div>
+                        <h3 className="font-semibold text-slate-900 dark:text-white">Flatten PDF Engine</h3>
+                        <p className="text-xs text-slate-500 mt-1">{flattenFile.name} ({(flattenFile.size / 1024).toFixed(0)} KB)</p>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => { setFlattenFile(null); if (flattenResultUrl) URL.revokeObjectURL(flattenResultUrl); setFlattenResultUrl(null); }} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10">
+                        <Trash2 size={16} className="mr-1.5" /> Close
+                      </Button>
+                    </div>
+
+                    <div className="flex justify-center py-2">
+                      <PdfLivePreview file={flattenFile} />
+                    </div>
+
+                    {/* Options */}
+                    <div className="space-y-3 bg-slate-50 dark:bg-surface-800/50 p-4 rounded-xl border border-black/5 dark:border-white/5">
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">Flatten Options</p>
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" checked={flattenForms} onChange={e => setFlattenForms(e.target.checked)} className="w-4 h-4 accent-primary-500" />
+                        <div>
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Flatten Form Fields</p>
+                          <p className="text-xs text-slate-500">Bake fillable inputs, checkboxes, dropdowns into static content</p>
+                        </div>
+                      </label>
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" checked={flattenAnnotations} onChange={e => setFlattenAnnotations(e.target.checked)} className="w-4 h-4 accent-primary-500" />
+                        <div>
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Remove Interactive Annotations</p>
+                          <p className="text-xs text-slate-500">Strip comment, link and highlight annotation layers</p>
+                        </div>
+                      </label>
+                    </div>
+
+                    {flattenResultUrl ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
+                          <CheckCircle2 size={18} /> Flattened PDF ready!
+                        </div>
+                        <Button onClick={() => { const a = document.createElement('a'); a.href = flattenResultUrl!; a.download = flattenFile.name.replace('.pdf', '_flattened.pdf'); a.click(); }} className="w-full py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-primary-500 to-indigo-600 text-white font-medium">
+                          <Download size={18} /> Download Flattened PDF
+                        </Button>
+                        <Button variant="ghost" onClick={() => setFlattenResultUrl(null)} className="w-full text-sm text-slate-500">Flatten again with different options</Button>
+                      </div>
+                    ) : (
+                      <Button onClick={handleFlattenPdf} disabled={isProcessing} className="w-full py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-primary-500 to-indigo-600 text-white font-medium">
+                        {isProcessing ? <RefreshCw size={16} className="animate-spin" /> : <Minimize2 size={16} />}
+                        {isProcessing ? 'Flattening...' : 'Flatten PDF'}
+                      </Button>
+                    )}
+                  </Card>
+                )}
+              </>
+            )}
+
+            {/* Grayscale PDF Workspace */}
+            {activeTab === 'grayscale' && (
+              <>
+                {!grayFile ? (
+                  <Card className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-black/10 dark:border-white/20 animate-fade-in">
+                    <div className="w-16 h-16 rounded-2xl bg-black/5 dark:bg-white/10 flex items-center justify-center text-primary-400 mb-4">
+                      <Contrast size={32} />
+                    </div>
+                    <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Convert to Grayscale</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm mb-4">
+                      Render every page in black & white. Reduces file size and prepares documents for black-only printing.
+                    </p>
+                    <label className="btn-base bg-primary-500 hover:bg-primary-600 text-white px-5 py-2.5 rounded-xl cursor-pointer shadow-lg transition-all">
+                      Open PDF
+                      <input type="file" accept="application/pdf" className="hidden" onChange={e => e.target.files?.[0] && setGrayFile(e.target.files[0])} />
+                    </label>
+                  </Card>
+                ) : (
+                  <Card className="space-y-5 animate-fade-in">
+                    <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-4">
+                      <div>
+                        <h3 className="font-semibold text-slate-900 dark:text-white">Grayscale Engine</h3>
+                        <p className="text-xs text-slate-500 mt-1">{grayFile.name}</p>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => { setGrayFile(null); if (grayResultUrl) URL.revokeObjectURL(grayResultUrl); setGrayResultUrl(null); setGrayProgress(0); setGrayStatus(''); }} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10">
+                        <Trash2 size={16} className="mr-1.5" /> Close
+                      </Button>
+                    </div>
+
+                    <div className="flex justify-center py-2">
+                      <PdfLivePreview file={grayFile} renderOverlay={() => <div className="absolute inset-0 backdrop-grayscale" />} />
+                    </div>
+
+                    {isProcessing && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs text-slate-500">
+                          <span>{grayStatus}</span>
+                          <span>{grayProgress}%</span>
+                        </div>
+                        <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                          <div className="bg-gradient-to-r from-primary-500 to-indigo-500 h-2 rounded-full transition-all duration-300" style={{ width: `${grayProgress}%` }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {grayResultUrl ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
+                          <CheckCircle2 size={18} /> Grayscale PDF ready!
+                        </div>
+                        <Button onClick={() => { const a = document.createElement('a'); a.href = grayResultUrl!; a.download = grayFile.name.replace('.pdf', '_grayscale.pdf'); a.click(); }} className="w-full py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-primary-500 to-indigo-600 text-white font-medium">
+                          <Download size={18} /> Download Grayscale PDF
+                        </Button>
+                        <Button variant="ghost" onClick={() => setGrayResultUrl(null)} className="w-full text-sm text-slate-500">Convert again with different quality</Button>
+                      </div>
+                    ) : (
+                      <Button onClick={handleConvertGrayscale} disabled={isProcessing} className="w-full py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-primary-500 to-indigo-600 text-white font-medium">
+                        {isProcessing ? <RefreshCw size={16} className="animate-spin" /> : <Contrast size={16} />}
+                        {isProcessing ? 'Converting...' : 'Convert to Grayscale'}
+                      </Button>
+                    )}
+                  </Card>
+                )}
+              </>
+            )}
+
             {/* Privacy Promise Banner */}
             <Card className="bg-gradient-to-r from-emerald-500/5 to-teal-500/5 border border-emerald-500/10">
               <div className="flex gap-4 items-start">
@@ -1713,8 +3233,102 @@ export default function PdfTools() {
 
           </div>
 
-          {/* Sidebar controls area */}
-          <div className="lg:col-span-4 space-y-6">
+          {/* Settings Sidebar Area */}
+          <div className="lg:col-span-4 xl:col-span-3 space-y-6">
+
+            {/* Sidebar 0: PDF Annotator Settings */}
+            {activeTab === 'annotate' && (
+              <Card className="space-y-6 animate-fade-in">
+                <div>
+                  <h3 className="font-semibold text-slate-900 dark:text-white text-sm uppercase tracking-wide mb-1">
+                    Annotator Panel
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Manage and export your drawing session
+                  </p>
+                </div>
+
+                {annotateFile ? (
+                  <div className="space-y-4">
+                    {/* Active File Card */}
+                    <div className="p-3.5 bg-primary-500/5 dark:bg-primary-500/10 border border-primary-500/10 rounded-xl space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-xs font-semibold text-primary-600 dark:text-primary-400">
+                          Active Editing Session
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-slate-700 dark:text-slate-350 truncate">
+                          {annotateFile.name}
+                        </p>
+                        <p className="text-[10px] text-slate-500">
+                          File Size: {(annotateFile.size / (1024 * 1024)).toFixed(2)} MB
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Primary Actions */}
+                    <div className="space-y-3 pt-2">
+                      <Button
+                        onClick={handleSaveAnnotatedPdf}
+                        className="w-full py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-primary-500 to-indigo-600 hover:from-primary-600 hover:to-indigo-700 text-white font-medium shadow-md hover:shadow-primary-500/25 transition-all"
+                      >
+                        <Save size={16} /> Save & Export PDF
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          if (annotateIframeRef.current) {
+                            // Reload the iframe to reset all annotations
+                            annotateIframeRef.current.src = `/pdfjs-annotation-viewer/web/viewer.html?file=${encodeURIComponent(annotatePdfUrl || '')}`;
+                            notify('Reset all annotations! ✓', 'info');
+                          }
+                        }}
+                        className="w-full py-2.5 flex items-center justify-center gap-2 border border-black/10 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5"
+                      >
+                        <RefreshCw size={14} /> Clear Draw Changes
+                      </Button>
+                    </div>
+
+                    {/* Interactive Annotation Tips */}
+                    <div className="border-t border-black/5 dark:border-white/5 pt-4 space-y-3">
+                      <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        Annotation Quick Tips:
+                      </h4>
+                      <ul className="space-y-2 text-[11px] text-slate-600 dark:text-slate-400">
+                        <li className="flex items-start gap-2">
+                          <span className="text-primary-500 mt-0.5">•</span>
+                          <span>Use the toolbar inside the PDF window to select Drawing, Text, Highlight, shapes or Signature tools.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-primary-500 mt-0.5">•</span>
+                          <span>Press <kbd className="px-1 py-0.5 bg-black/5 dark:bg-white/10 rounded font-mono text-[10px]">Ctrl + Z</kbd> inside the viewer to undo drawings.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-primary-500 mt-0.5">•</span>
+                          <span>Double-click placed items to change colors, thickness, or edit text properties.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-primary-500 mt-0.5">•</span>
+                          <span>All processing executes fully locally in your browser sandbox, keeping your documents 100% private.</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-6 space-y-3">
+                    <div className="inline-flex p-3 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400">
+                      <FileText size={24} />
+                    </div>
+                    <p className="text-xs text-slate-500 max-w-[200px] mx-auto leading-relaxed">
+                      Select and load a PDF file in the workspace to activate full interactive annotation tools.
+                    </p>
+                  </div>
+                )}
+              </Card>
+            )}
 
             {/* Sidebar 1: PDF Organizer Settings */}
             {activeTab === 'editor' && (
@@ -1844,6 +3458,41 @@ export default function PdfTools() {
                         Automatically add page numbers
                       </span>
                     </label>
+
+                    {/* PDF Metadata Properties */}
+                    <div className="space-y-3 pt-3">
+                      <label className="text-xs text-slate-600 dark:text-slate-400 block">PDF Metadata Properties</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input
+                          type="text"
+                          value={editorMetadata.title}
+                          onChange={e => setEditorMetadata(prev => ({ ...prev, title: e.target.value }))}
+                          placeholder="Document Title"
+                          className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        />
+                        <input
+                          type="text"
+                          value={editorMetadata.author}
+                          onChange={e => setEditorMetadata(prev => ({ ...prev, author: e.target.value }))}
+                          placeholder="Author Name"
+                          className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        />
+                        <input
+                          type="text"
+                          value={editorMetadata.subject}
+                          onChange={e => setEditorMetadata(prev => ({ ...prev, subject: e.target.value }))}
+                          placeholder="Subject"
+                          className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        />
+                        <input
+                          type="text"
+                          value={editorMetadata.keywords}
+                          onChange={e => setEditorMetadata(prev => ({ ...prev, keywords: e.target.value }))}
+                          placeholder="Keywords (comma separated)"
+                          className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1900,11 +3549,14 @@ export default function PdfTools() {
                       <option value="png">PNG (Lossless)</option>
                       <option value="jpeg">JPEG (Compact)</option>
                       <option value="webp">WebP (Modern)</option>
+                      <option value="bmp">BMP (Bitmap)</option>
+                      <option value="gif">GIF (Graphics)</option>
+                      <option value="tiff">TIFF (High-End)</option>
                     </select>
                   </div>
 
                   {/* Quality */}
-                  {pdfToImgFormat !== 'png' && (
+                  {['jpeg', 'webp'].includes(pdfToImgFormat) && (
                     <div>
                       <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
                         <span>Compression Quality</span>
@@ -2155,12 +3807,454 @@ export default function PdfTools() {
               </Card>
             )}
 
+            {/* Sidebar 6: OCR Text Extractor Settings */}
+            {activeTab === 'ocr' && (
+              <Card className="space-y-6 animate-fade-in">
+                <div>
+                  <h3 className="font-semibold text-slate-900 dark:text-white mb-1 text-sm uppercase tracking-wide">
+                    Extraction Settings
+                  </h3>
+                  <p className="text-xs text-slate-500">Configure language and page range</p>
+                </div>
+
+                <div className="space-y-5">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                      Target Language
+                    </label>
+                    <select
+                      value={ocrLanguage}
+                      onChange={e => setOcrLanguage(e.target.value)}
+                      className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+                    >
+                      <option value="eng">English</option>
+                      <option value="spa">Spanish (Español)</option>
+                      <option value="fra">French (Français)</option>
+                      <option value="deu">German (Deutsch)</option>
+                      <option value="por">Portuguese (Português)</option>
+                      <option value="ita">Italian (Italiano)</option>
+                      <option value="rus">Russian (Русский)</option>
+                      <option value="ara">Arabic (العربية)</option>
+                      <option value="chi_sim">Chinese Simplified</option>
+                      <option value="jpn">Japanese (日本語)</option>
+                      <option value="kor">Korean (한국어)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                      Page Selection
+                    </label>
+                    <select
+                      value={ocrPageNum}
+                      onChange={e => setOcrPageNum(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                      className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+                    >
+                      <option value="all">Extract All Pages</option>
+                      {Array.from({ length: ocrPagesTotal }, (_, i) => i + 1).map(num => (
+                        <option key={num} value={num}>
+                          Extract Page {num}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <Button
+                    onClick={handleOcrExtractText}
+                    disabled={!ocrFile || isProcessing}
+                    className="w-full py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-primary-500 to-indigo-600 hover:from-primary-600 hover:to-indigo-700 text-white font-medium rounded-xl shadow-md hover:shadow-primary-500/25 transition-all"
+                  >
+                    {isProcessing ? (
+                      <><RefreshCw size={16} className="animate-spin" /> Extracting Text…</>
+                    ) : (
+                      <><Type size={16} /> Start Text Extraction</>
+                    )}
+                  </Button>
+                </div>
+
+                <div className="p-3.5 bg-indigo-500/5 rounded-xl border border-indigo-500/10 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Award size={14} className="text-indigo-500" />
+                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">Offline AI Processing</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    The Tesseract optical character recognition (OCR) engine runs completely offline. The language model will securely cache in your browser the first time you use it.
+                  </p>
+                </div>
+              </Card>
+            )}
+
+            {/* Sidebar 6: Watermark PDF Settings */}
+            {activeTab === 'watermark' && watermarkFile && (
+              <Card className="sticky top-24 animate-slide-up">
+                <div className="flex items-center gap-2 mb-4">
+                  <Stamp size={20} className="text-primary-500" />
+                  <h3 className="font-semibold text-slate-900 dark:text-white">WATERMARK SETTINGS</h3>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Settings Form */}
+                  <div className="space-y-4 bg-slate-50 dark:bg-surface-800/50 p-4 rounded-xl border border-black/5 dark:border-white/5">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">WATERMARK TEXT</label>
+                      <input
+                        type="text"
+                        value={watermarkText}
+                        onChange={(e) => setWatermarkText(e.target.value)}
+                        placeholder="CONFIDENTIAL"
+                        className="w-full bg-white dark:bg-surface-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex justify-between">
+                        <span>OPACITY</span>
+                        <span>{Math.round(watermarkOpacity * 100)}%</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="1"
+                        step="0.05"
+                        value={watermarkOpacity}
+                        onChange={(e) => setWatermarkOpacity(parseFloat(e.target.value))}
+                        className="w-full accent-primary-500"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex justify-between">
+                        <span>SIZE</span>
+                        <span>{watermarkSize}px</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="20"
+                        max="150"
+                        step="5"
+                        value={watermarkSize}
+                        onChange={(e) => setWatermarkSize(parseInt(e.target.value))}
+                        className="w-full accent-primary-500"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">COLOR</label>
+                        <input
+                          type="color"
+                          value={watermarkColor}
+                          onChange={(e) => setWatermarkColor(e.target.value)}
+                          className="w-full h-9 rounded cursor-pointer border-0 p-0"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">LAYOUT</label>
+                        <select
+                          value={watermarkLayout}
+                          onChange={(e) => setWatermarkLayout(e.target.value as any)}
+                          className="w-full bg-white dark:bg-surface-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        >
+                          <option value="centered">Centered</option>
+                          <option value="tiled">Tiled (Repeat)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="pt-2">
+                    <Button
+                      onClick={handleApplyWatermark}
+                      disabled={isProcessing || !watermarkText}
+                      className="w-full py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-primary-500 to-indigo-600 hover:from-primary-600 hover:to-indigo-700 text-white font-medium shadow-md hover:shadow-primary-500/25 transition-all"
+                    >
+                      {isProcessing ? (
+                        <RefreshCw size={16} className="animate-spin" />
+                      ) : (
+                        <Stamp size={16} />
+                      )}
+                      {isProcessing ? 'Stamping...' : 'Apply Watermark'}
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Sidebar: Split PDF Settings */}
+            {activeTab === 'split' && splitFile && (
+              <Card className="sticky top-24 animate-slide-up space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Crop size={20} className="text-primary-500" />
+                  <h3 className="font-semibold text-slate-900 dark:text-white">SPLIT OPTIONS</h3>
+                </div>
+                <p className="text-[10px] text-slate-500">File has {splitTotalPages} pages</p>
+
+                <div className="space-y-4 bg-slate-50 dark:bg-surface-800/50 p-4 rounded-xl border border-black/5 dark:border-white/5">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">SPLIT MODE</label>
+                    <select value={splitMode} onChange={e => setSplitMode(e.target.value as any)} className="w-full bg-white dark:bg-surface-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
+                      <option value="range">By Page Range</option>
+                      <option value="every">Every N Pages</option>
+                      <option value="extract">Extract Specific Pages</option>
+                    </select>
+                  </div>
+
+                  {splitMode === 'range' && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">PAGE RANGES <span className="font-normal text-slate-400">(e.g. 1-3, 4-6)</span></label>
+                      <input type="text" value={splitRange} onChange={e => setSplitRange(e.target.value)} placeholder="1-3, 4-6" className="w-full bg-white dark:bg-surface-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                    </div>
+                  )}
+                  {splitMode === 'every' && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex justify-between"><span>PAGES PER FILE</span><span>{splitEvery}</span></label>
+                      <input type="range" min="1" max={splitTotalPages || 10} value={splitEvery} onChange={e => setSplitEvery(parseInt(e.target.value))} className="w-full accent-primary-500" />
+                    </div>
+                  )}
+                  {splitMode === 'extract' && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">PAGE NUMBERS <span className="font-normal text-slate-400">(e.g. 1,3,5)</span></label>
+                      <input type="text" value={splitExtractPages} onChange={e => setSplitExtractPages(e.target.value)} placeholder="1,3,5" className="w-full bg-white dark:bg-surface-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                    </div>
+                  )}
+                </div>
+
+                <Button onClick={handleSplitPdf} disabled={isProcessing} className="w-full py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-primary-500 to-indigo-600 hover:from-primary-600 hover:to-indigo-700 text-white font-medium">
+                  {isProcessing ? <RefreshCw size={16} className="animate-spin" /> : <Crop size={16} />}
+                  {isProcessing ? 'Splitting...' : 'Split PDF'}
+                </Button>
+              </Card>
+            )}
+
+            {/* Sidebar: Page Numbers Settings */}
+            {activeTab === 'page-numbers' && pageNumFile && (
+              <Card className="sticky top-24 animate-slide-up space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <GripHorizontal size={20} className="text-primary-500" />
+                  <h3 className="font-semibold text-slate-900 dark:text-white">PAGE NUMBER SETTINGS</h3>
+                </div>
+
+                <div className="space-y-4 bg-slate-50 dark:bg-surface-800/50 p-4 rounded-xl border border-black/5 dark:border-white/5">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">FORMAT</label>
+                    <select value={pageNumFormat} onChange={e => setPageNumFormat(e.target.value as any)} className="w-full bg-white dark:bg-surface-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
+                      <option value="n">1, 2, 3...</option>
+                      <option value="Page n">Page 1, Page 2...</option>
+                      <option value="Page n of N">Page 1 of 10</option>
+                      <option value="n / N">1 / 10</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">POSITION</label>
+                    <select value={pageNumPosition} onChange={e => setPageNumPosition(e.target.value as any)} className="w-full bg-white dark:bg-surface-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
+                      <option value="bottom-center">Bottom Center</option>
+                      <option value="bottom-right">Bottom Right</option>
+                      <option value="top-center">Top Center</option>
+                      <option value="top-right">Top Right</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex justify-between"><span>FONT SIZE</span><span>{pageNumSize}px</span></label>
+                    <input type="range" min="8" max="24" value={pageNumSize} onChange={e => setPageNumSize(parseInt(e.target.value))} className="w-full accent-primary-500" />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex justify-between"><span>MARGIN</span><span>{pageNumMargin}px</span></label>
+                    <input type="range" min="10" max="60" value={pageNumMargin} onChange={e => setPageNumMargin(parseInt(e.target.value))} className="w-full accent-primary-500" />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">START NUMBERING AT</label>
+                    <input type="number" min="1" value={pageNumStartAt} onChange={e => setPageNumStartAt(parseInt(e.target.value) || 1)} className="w-full bg-white dark:bg-surface-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                  </div>
+                </div>
+
+                <Button onClick={handleApplyPageNumbers} disabled={isProcessing} className="w-full py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-primary-500 to-indigo-600 hover:from-primary-600 hover:to-indigo-700 text-white font-medium">
+                  {isProcessing ? <RefreshCw size={16} className="animate-spin" /> : <GripHorizontal size={16} />}
+                  {isProcessing ? 'Adding Numbers...' : 'Apply Page Numbers'}
+                </Button>
+              </Card>
+            )}
+
+            {/* Sidebar: Transform (Rotate & Crop) Settings */}
+            {activeTab === 'transform' && transformFile && (
+              <Card className="sticky top-24 animate-slide-up space-y-5">
+                <div className="flex items-center gap-2 mb-1">
+                  <RotateCw size={20} className="text-primary-500" />
+                  <h3 className="font-semibold text-slate-900 dark:text-white">TRANSFORM SETTINGS</h3>
+                </div>
+
+                {/* Rotate Section */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">ROTATE</label>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {([0, 90, 180, 270] as const).map(angle => (
+                      <button
+                        key={angle}
+                        onClick={() => setRotateAngle(angle)}
+                        className={`py-2 rounded-lg text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 ${
+                          rotateAngle === angle
+                            ? 'bg-primary-500 text-white'
+                            : 'bg-slate-100 dark:bg-surface-800 text-slate-600 dark:text-slate-400 hover:bg-primary-100 dark:hover:bg-primary-900/30'
+                        }`}
+                      >
+                        <RotateCw size={14} style={{ transform: `rotate(${angle === 90 ? 0 : angle === 180 ? 90 : angle === 270 ? 180 : -90}deg)` }} />
+                        {angle === 0 ? 'None' : `${angle}°`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="h-px w-full bg-slate-200 dark:bg-slate-800" />
+
+                {/* Crop Unit Selector */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">CROP UNIT</label>
+                  <div className="flex gap-2">
+                    {(['mm', 'pt', 'px'] as const).map(u => (
+                      <button
+                        key={u}
+                        onClick={() => setCropUnit(u)}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase transition-all ${
+                          cropUnit === u
+                            ? 'bg-primary-500 text-white'
+                            : 'bg-slate-100 dark:bg-surface-800 text-slate-600 dark:text-slate-400 hover:bg-primary-100 dark:hover:bg-primary-900/30'
+                        }`}
+                      >
+                        {u}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Crop Margin Inputs */}
+                <div className="space-y-4 bg-slate-50 dark:bg-surface-800/50 p-4 rounded-xl border border-black/5 dark:border-white/5">
+                  {([
+                    { label: 'TOP', val: cropTop, set: setCropTop },
+                    { label: 'BOTTOM', val: cropBottom, set: setCropBottom },
+                    { label: 'LEFT', val: cropLeft, set: setCropLeft },
+                    { label: 'RIGHT', val: cropRight, set: setCropRight },
+                  ]).map(({ label, val, set }) => (
+                    <div key={label} className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex justify-between">
+                        <span>{label}</span>
+                        <span className="font-normal text-slate-400">{val} {cropUnit}</span>
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="range"
+                          min="0"
+                          max={cropUnit === 'mm' ? 50 : cropUnit === 'pt' ? 150 : 200}
+                          step={cropUnit === 'mm' ? 0.5 : 1}
+                          value={val}
+                          onChange={e => set(parseFloat(e.target.value))}
+                          className="flex-1 accent-primary-500"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          value={val}
+                          onChange={e => set(parseFloat(e.target.value) || 0)}
+                          className="w-14 text-center bg-white dark:bg-surface-900 border border-slate-300 dark:border-slate-700 rounded-lg px-1 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Quick Crop Presets */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">QUICK CROP</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { label: 'Remove 5mm', v: 5 },
+                      { label: 'Remove 10mm', v: 10 },
+                      { label: 'Remove 15mm', v: 15 },
+                      { label: 'Reset all', v: 0 },
+                    ].map(p => (
+                      <button
+                        key={p.label}
+                        onClick={() => {
+                          if (cropUnit !== 'mm') setCropUnit('mm');
+                          setCropTop(p.v); setCropBottom(p.v); setCropLeft(p.v); setCropRight(p.v);
+                        }}
+                        className="text-[10px] py-1.5 px-2 rounded-lg bg-slate-100 dark:bg-surface-800 text-slate-600 dark:text-slate-400 hover:bg-primary-100 dark:hover:bg-primary-900/30 hover:text-primary-600 transition-all text-left leading-tight"
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Sidebar: Flatten PDF */}
+            {activeTab === 'flatten' && flattenFile && (
+              <Card className="sticky top-24 animate-slide-up">
+                <div className="flex items-center gap-2 mb-4">
+                  <Minimize2 size={20} className="text-primary-500" />
+                  <h3 className="font-semibold text-slate-900 dark:text-white">FLATTEN INFO</h3>
+                </div>
+                <div className="space-y-3 text-[11px] text-slate-500 leading-relaxed">
+                  <p>Flattening merges interactive layers into static page content.</p>
+                  <div className="space-y-1.5 bg-slate-50 dark:bg-surface-800/50 p-3 rounded-xl border border-black/5 dark:border-white/5">
+                    <p><b className="text-slate-700 dark:text-slate-300">✓ Form Fields</b> — Text inputs, checkboxes, radio buttons and dropdowns become uneditable text</p>
+                    <p><b className="text-slate-700 dark:text-slate-300">✓ Annotations</b> — Comments and highlights are removed from the annotation layer</p>
+                    <p><b className="text-orange-500">⚠ Irreversible</b> — Once flattened, fields cannot be re-activated. Save the original first.</p>
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Sidebar: Grayscale Settings */}
+            {activeTab === 'grayscale' && grayFile && (
+              <Card className="sticky top-24 animate-slide-up space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Contrast size={20} className="text-primary-500" />
+                  <h3 className="font-semibold text-slate-900 dark:text-white">QUALITY SETTINGS</h3>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex justify-between">
+                    <span>RENDER SCALE</span>
+                    <span className="font-normal text-slate-400">{grayScale}x</span>
+                  </label>
+                  <input type="range" min="1" max="3" step="0.5" value={grayScale} onChange={e => setGrayScale(parseFloat(e.target.value))} className="w-full accent-primary-500" />
+                  <p className="text-[10px] text-slate-500 leading-relaxed">
+                    Higher scale = sharper output but larger file and slower processing. 1.5x is recommended for most documents.
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5 text-center text-[10px]">
+                  {[{ v: 1, l: '1x\nSmall' }, { v: 1.5, l: '1.5x\nBalanced' }, { v: 2, l: '2x\nSharp' }].map(p => (
+                    <button key={p.v} onClick={() => setGrayScale(p.v)}
+                      className={`py-2 rounded-lg whitespace-pre-line font-semibold transition-all ${
+                        grayScale === p.v ? 'bg-primary-500 text-white' : 'bg-slate-100 dark:bg-surface-800 text-slate-500 hover:bg-primary-100'
+                      }`}>
+                      {p.l}
+                    </button>
+                  ))}
+                </div>
+              </Card>
+            )}
+
             {/* Secondary Action: Reset Workspace */}
             {((activeTab === 'editor' && pdfPages.length > 0) ||
               (activeTab === 'to-images' && pdfToImgFile) ||
               (activeTab === 'from-images' && imagePages.length > 0) ||
               (activeTab === 'compress' && compressFile) ||
-              (activeTab === 'office-to-pdf' && officeFile)) && (
+              (activeTab === 'office-to-pdf' && officeFile) ||
+              (activeTab === 'watermark' && watermarkFile) ||
+              (activeTab === 'split' && splitFile) ||
+              (activeTab === 'transform' && transformFile) ||
+              (activeTab === 'flatten' && flattenFile) ||
+              (activeTab === 'grayscale' && grayFile) ||
+              (activeTab === 'metadata' && metaFile) ||
+              (activeTab === 'page-numbers' && pageNumFile) ||
+              (activeTab === 'ocr' && ocrFile)) && (
                 <button
                   onClick={clearWorkspace}
                   className="w-full py-2.5 rounded-xl border border-red-500/20 text-red-400 hover:bg-red-500/5 text-sm font-medium transition-all"
