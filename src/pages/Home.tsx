@@ -82,6 +82,13 @@ export default function Home() {
               </button>
             </Link>
           </div>
+          
+          <div className="mt-8 flex justify-center items-center gap-2 px-4 animate-fade-in" style={{ animationDelay: '200ms', animationFillMode: 'both' }}>
+            <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">Also available for Desktop:</span>
+            <a href="https://apps.microsoft.com/detail/9N258RP6WM0Z?hl=en-us&gl=CA&ocid=pdpshare" target="_blank" rel="noopener noreferrer" className="hover:scale-105 transition-transform duration-300 inline-block">
+              <img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Download from Microsoft Store" className="h-10 sm:h-12 drop-shadow-sm" />
+            </a>
+          </div>
         </div>
 
         {/* Instant Upload & Intelligent Router Dropzone */}
