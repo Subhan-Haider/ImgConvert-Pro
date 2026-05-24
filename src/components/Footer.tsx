@@ -13,9 +13,9 @@ export function Footer() {
               <span className="gradient-text">ImgConvert Pro</span>
             </div>
             <address className="not-italic text-xs text-slate-500 dark:text-slate-400 text-center md:text-left">
-              123 Tech Boulevard<br />
-              San Francisco, CA 94105, US<br />
-              <a href="tel:+15550198" className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors">+1-555-0198</a>
+              111 Molland Lane<br />
+              Saskatoon, SK S7M 3Z2, CA<br />
+              <a href="tel:+13019660366" className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors">301-966-0366</a>
             </address>
             <a href="https://apps.microsoft.com/detail/9N258RP6WM0Z?hl=en-us&gl=CA&ocid=pdpshare" target="_blank" rel="noopener noreferrer" className="hover:scale-105 transition-transform duration-300 inline-block mt-1">
               <img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Download from Microsoft Store" className="h-10 drop-shadow-sm" />
