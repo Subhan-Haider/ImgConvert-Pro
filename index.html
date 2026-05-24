@@ -538,6 +538,495 @@
           <li><strong>Limitation of Liability:</strong> ImgConvert Pro and its developer are not liable for any loss of data or damages resulting from use of the application.</li>
         </ul>
 
+        <!-- ==================== DEEP DIVE: ALL 13 PDF SUITE TOOLS ==================== -->
+        <h2>Comprehensive Technical Reference for the 13 PDF Suite Tools</h2>
+        <p>ImgConvert Pro provides a full collection of document processing features, running entirely inside your browser's sandboxed environment. Here is a detailed breakdown of each of the 13 PDF tools, explaining their technical functionality, exact usage instructions, and practical real-world scenarios.</p>
+
+        <h3>Tool 1: Interactive PDF Annotator</h3>
+        <p><strong>Technical Overview:</strong> The PDF Annotator uses Mozilla's PDF.js to render document page streams into high-resolution HTML5 Canvas viewports. Overlaid on top of these page canvases are interactive transparent drawing and text layers. User inputs, such as brush strokes, vector shapes (rectangles, circles, lines), and dynamic text labels, are captured as vector coordinate nodes. When the document is saved, these vector annotations are serialized and merged directly into the binary PDF structure using pdf-lib, generating native, editable PDF annotations that are fully compliant with the Adobe PDF specification.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Open the PDF Tools panel and upload your document.</li>
+          <li>Select the <strong>Annotator</strong> tab to display the interactive editor.</li>
+          <li>Choose a tool from the floating toolbar: Pen (freehand drawing), Text (add comments), Highlight (draw semi-transparent rectangles), or Shapes (insert rects, circles, lines).</li>
+          <li>Select a custom stroke/fill color using the HSL color picker and adjust brush thickness.</li>
+          <li>Click and drag on any page to draw or place shapes. Click to insert a text box and type your notes.</li>
+          <li>Use the Undo/Redo buttons to correct edits. Click "Export PDF" to save the annotated document directly to your device.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Perfect for teachers grading students' homework submissions, lawyers reviewing contracts, and editors making annotations on draft publications securely.</p>
+
+        <h3>Tool 2: Page Organizer &amp; Sorter</h3>
+        <p><strong>Technical Overview:</strong> This utility manipulates the document's page tree structure using pdf-lib. When a PDF is loaded, pages are rendered as small, responsive thumbnail previews. The page order is managed via a drag-and-drop state array. Page deletion and rotation (90°, 180°, 270°) update the page metadata dictionary. Once the user clicks export, pdf-lib builds a new PDF from the modified page array, writing out a clean byte stream in seconds.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Upload your document in the PDF Tools panel and navigate to <strong>Page Sorter</strong>.</li>
+          <li>Drag and drop the thumbnails to reorder the pages visually.</li>
+          <li>Hover over any page thumbnail to display action icons: click the rotate icons to turn the page 90 degrees clockwise or counterclockwise, or click the trash icon to delete the page.</li>
+          <li>Double-click a thumbnail to launch the fullscreen magnifier preview.</li>
+          <li>Click "Apply &amp; Save" to compile your updated layout and download the organized document.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Ideal for organizing scanned tax documents, correcting upside-down page orientations from scanners, and removing blank trailing pages from large reports.</p>
+
+        <h3>Tool 3: Precise PDF Splitter</h3>
+        <p><strong>Technical Overview:</strong> The Splitter clones selective page ranges from a loaded PDF instance into newly created pdf-lib document instances. It operates in multiple modes: range extraction (extracts designated page indexes), partition splits (breaks the file into chunks of N pages), or complete splits (outputs each page as an individual file). All split files are assembled as in-memory blob URLs and packaged into a ZIP archive using JSZip.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Load a PDF file and select the <strong>PDF Splitter</strong> option.</li>
+          <li>Select your splitting mode: <em>Page Range</em>, <em>Split Every N Pages</em>, or <em>Extract All Pages</em>.</li>
+          <li>For range splitting, type your target ranges in standard notation (e.g., <code>1-3, 5, 8-12</code>).</li>
+          <li>Click "Process Split" to partition your file. The tool calculates page counts and outputs files instantly.</li>
+          <li>Click "Download All as ZIP" to download a zip file containing all your split documents.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Used by bookkeepers to extract individual invoices from monthly multi-page billing sheets, or students selecting specific textbook chapters for reading assignments.</p>
+
+        <h3>Tool 4: Crop &amp; Rotate Document</h3>
+        <p><strong>Technical Overview:</strong> PDF crop adjustments modify the bounding crop box parameters within the PDF's internal page dictionary (the <code>/CropBox</code> entry). Instead of re-rasterizing the page and degrading the text, pdf-lib modifies the dimensions programmatically. Global or page-specific rotation values are updated in the <code>/Rotate</code> entry. Because text layers and vector paths remain intact, the document's file size does not increase, and it maintains high-quality resolution.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Upload your document and open the <strong>Crop &amp; Rotate</strong> tool.</li>
+          <li>Select whether you want to apply changes to all pages or a specific page range.</li>
+          <li>Adjust the cropping margins (Top, Bottom, Left, Right) in pixels or inches using the sliders or numerical inputs. A crop outline box will update in real-time.</li>
+          <li>Set a precise rotation degree using the slider (supporting arbitrary angles from -180 to +180 degrees).</li>
+          <li>Click "Apply Bounding Boxes" to modify the PDF parameters and save the document.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Great for trimming unwanted margins from academic articles to read on mobile devices or correcting misaligned page orientations in technical draft drawings.</p>
+
+        <h3>Tool 5: Grayscale B&amp;W Converter</h3>
+        <p><strong>Technical Overview:</strong> This tool utilizes a GPU-accelerated canvas filter pipeline to remove color. First, pdf.js renders each page into an offscreen canvas. We retrieve the canvas's 2D context image data as a raw 32-bit RGBA pixel buffer. For every pixel, the luminance value is calculated using the standard CCIR 601 formula: <code>L = 0.299R + 0.587G + 0.114B</code>. The red, green, and blue values are replaced with this calculated luminance, converting the image to true grayscale. The modified pixel buffer is written back to the canvas, and a new high-resolution PDF is compiled with the black-and-white canvas layers.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Open the <strong>Grayscale &amp; B&amp;W</strong> utility in the PDF tools interface.</li>
+          <li>Upload your colored PDF document.</li>
+          <li>Adjust the threshold slider to adjust black-and-white contrast levels.</li>
+          <li>Select your target DPI (150 DPI for standard use, 300 DPI for high-resolution print).</li>
+          <li>Click "Convert to Grayscale". The client-side worker processes each page canvas sequentially.</li>
+          <li>Once finished, download your print-ready black-and-white PDF.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Reduces file sizes before emailing large color documents, and optimizes files for standard monochrome laser printing, saving expensive ink and toner cartridge costs.</p>
+
+        <h3>Tool 6: Smart PDF Compressor</h3>
+        <p><strong>Technical Overview:</strong> The PDF Compressor reduces file size using a dual-stage local optimization pipeline. First, it targets image assets embedded within the PDF. High-resolution photos are extracted and re-compressed into highly optimized WebP or JPEG formats using quality settings ranging from 30% to 75%. Second, the compressor applies object stream flattening and metadata pruning, removing redundant XML trees, fonts, and duplicate color profiles using pdf-lib compression utilities. The resulting file maintains sharp text vector elements while reducing image payload sizes.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Navigate to the <strong>Compressor</strong> tool and upload your PDF document.</li>
+          <li>Select from four compression presets: <em>Aggressive (Screen Quality, 72 DPI)</em>, <em>Medium (Web Quality, 150 DPI)</em>, <em>Lossless (Print Quality, 300 DPI)</em>, or <em>Custom Compression</em>.</li>
+          <li>For custom compression, manually adjust the image quality slider and target DPI.</li>
+          <li>Click "Compress PDF" to start. A status bar shows progress and real-time file size savings.</li>
+          <li>Review the final compression percentage and download your optimized document.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Helps job seekers compress large portfolio PDFs to meet website upload limits, and enables businesses to reduce server storage overhead by archiving smaller documents.</p>
+
+        <h3>Tool 7: Offline OCR Text Extractor</h3>
+        <p><strong>Technical Overview:</strong> The OCR engine leverages Tesseract.js, a WebAssembly compilation of Hewlett-Packard's Tesseract OCR library. When a user uploads a scanned PDF, pdf.js renders the pages as high-resolution images. These image buffers are passed to a Tesseract worker pool. The WASM engine processes the pixel matrices, applying layout analysis, baseline detection, and character segmentation. It extracts recognized text strings, bounding box coordinates, and confidence scores. The extracted text is then returned to the main thread, keeping all document contents strictly within your local browser sandbox.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Select the <strong>Offline OCR</strong> tool and upload your scanned PDF or image.</li>
+          <li>Select the primary language of the document (English, Spanish, French, German, Chinese, etc.). The app loads the corresponding language pack locally.</li>
+          <li>Choose whether to run OCR on the entire document or a specific page range.</li>
+          <li>Click "Start OCR Recognition". The Web Assembly engine will analyze your document, updating a live progress bar.</li>
+          <li>Review the extracted text inside the interactive text box. You can make manual corrections, click "Copy to Clipboard", or export the output as a <code>.txt</code> file.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Allows students and researchers to convert scanned physical articles into searchable, editable text notes, and helps office workers quickly digitize printed records.</p>
+
+        <h3>Tool 8: Dynamic PDF Watermarker</h3>
+        <p><strong>Technical Overview:</strong> The Watermarker embeds text or image layers into a PDF using pdf-lib. The user's custom watermark text is drawn onto a virtual canvas layer using target fonts, sizes, and opacity values. The canvas is serialized into a PNG byte stream and loaded as an image asset. Using pdf-lib, we draw this image asset onto each page's canvas layer, using precise rotation matrices. You can overlay the watermark on top of the existing content or place it underneath as a subtle background layer.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Upload your file and select the <strong>PDF Watermark</strong> tool.</li>
+          <li>Type your custom watermark text (e.g., <code>CONFIDENTIAL</code>, <code>DRAFT</code>, or <code>PROPRIETARY</code>).</li>
+          <li>Select your watermark style: <em>Text</em> (adjustable font, size, and color) or <em>Image</em> (upload a custom logo).</li>
+          <li>Configure layout settings: select positioning (Center, Tiled Grid, or Corner), adjust opacity (10% to 90%), and set a rotation angle.</li>
+          <li>Choose to draw the watermark on top of the text (ensures visibility) or behind it.</li>
+          <li>Click "Apply Watermark" to update the document and download your watermarked PDF.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Helps businesses protect intellectual property, mark draft agreements, and secure official documents before sharing them with external clients.</p>
+
+        <h3>Tool 9: Dynamic Page Numbering</h3>
+        <p><strong>Technical Overview:</strong> The Page Numbering utility stamps page indicators across a PDF document. pdf-lib retrieves the total page count and runs a loop through each page. Standard fonts (Helvetica, Times Roman, or Courier) are loaded, and the text string (e.g., "Page 1 of 12") is calculated. The page dimensions are queried to compute the exact X and Y coordinates for the text placement, matching the user's selected alignment (Bottom Right, Bottom Center, Top Right, etc.). The layout engine also respects custom margin offsets to avoid overlapping existing page content.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Select the <strong>Page Numbering</strong> tool and upload your PDF.</li>
+          <li>Choose your numbering format from the dropdown menu (e.g., <code>1</code>, <code>Page 1</code>, <code>Page 1 of N</code>, or <code>1 / N</code>).</li>
+          <li>Select the placement position: Bottom Right, Bottom Center, Bottom Left, Top Right, Top Center, or Top Left.</li>
+          <li>Set your margin offsets (in pixels) to control the distance from the page borders.</li>
+          <li>Specify the starting page number (useful if skipping a cover page) and target page range.</li>
+          <li>Select font family, size, and text color, then click "Stamp Page Numbers" to download.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Essential for organizing legal briefs, formatting academic theses, and ensuring multi-page corporate reports are easy to navigate.</p>
+
+        <h3>Tool 10: Forms &amp; Widget Flattener</h3>
+        <p><strong>Technical Overview:</strong> PDF forms contain interactive fields (AcroForm widgets) like text inputs, checkboxes, and radio buttons. Flattening merges these interactive field states into the page's graphical content stream. pdf-lib traverses the document's AcroForm dictionary, retrieves the value and appearance characteristics of each widget, and draws corresponding vector elements onto the page. The interactive form field objects are then deleted, locking the values in place and reducing potential rendering issues across different PDF viewers.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Upload your interactive PDF form and select the <strong>Form Flattener</strong> tool.</li>
+          <li>Verify the loaded fields shown in the summary list.</li>
+          <li>Select whether you want to flatten all form fields, annotations, or both.</li>
+          <li>Click "Flatten PDF". The application merges the form layers into the base document.</li>
+          <li>Download the flattened PDF, which will now display the text values as non-editable elements.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Used by signees to freeze completed digital forms and questionnaires before submission, preventing others from editing their responses.</p>
+
+        <h3>Tool 11: Document Metadata Editor</h3>
+        <p><strong>Technical Overview:</strong> PDF documents store author, title, and creation details in an information dictionary and an XML metadata stream (XMP). The Metadata Editor parses these blocks using pdf-lib. It updates standard metadata keys: <code>/Title</code>, <code>/Author</code>, <code>/Subject</code>, <code>/Keywords</code>, <code>/Creator</code>, and <code>/Producer</code>. The app also updates the XMP XML packet to match the dictionary values, ensuring metadata consistency across all modern search indexers and operating systems.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Select the <strong>Metadata Editor</strong> tab and upload your PDF file.</li>
+          <li>Review the currently embedded metadata details displayed in the input form.</li>
+          <li>Edit the text fields: Document Title, Author Name, Subject, and search-optimized Keywords.</li>
+          <li>Click "Update Metadata". The editor applies your changes without re-encoding any pages or images.</li>
+          <li>Download the updated file, which now contains your custom metadata tags.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Enables self-publishing authors to embed SEO keywords and copyright info into e-books, and helps businesses clean up tracking metadata before sending files to external clients.</p>
+
+        <h3>Tool 12: Office-to-PDF Conversion</h3>
+        <p><strong>Technical Overview:</strong> This tool converts standard Microsoft Office files (.docx, .xlsx, .pptx) into PDFs entirely in the browser. For Word documents, Mammoth.js parses the .docx zip container and translates the XML structures into standard HTML markup. For Excel files, SheetJS parses the spreadsheet worksheets, compiling tables into structured layouts. These intermediate layouts are then styled and rendered onto an offscreen canvas. Using jsPDF, the canvas contents are compiled into a standard PDF document.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Navigate to the <strong>Office to PDF</strong> tool and select your file (.docx, .xlsx, or .pptx).</li>
+          <li>Review the in-browser preview of the rendered document structure.</li>
+          <li>Adjust layout settings: choose Page Orientation (Portrait or Landscape) and set Page Margins.</li>
+          <li>Click "Convert Office Document". The conversion script runs client-side.</li>
+          <li>Once processing is complete, download your converted PDF file.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Allows users to convert Word documents and spreadsheets to PDFs on mobile devices or computers without Microsoft Office or Adobe Acrobat installed.</p>
+
+        <h3>Tool 13: PDF to High-Res Images</h3>
+        <p><strong>Technical Overview:</strong> The PDF to Image converter extracts pages as high-quality image files. pdf.js rasterizes each page onto a canvas viewport using a high scale multiplier (e.g., 2.0x or 3.0x scaling) to ensure text remains crisp. We extract the canvas image data as a Blob URL, converting it to the user's selected format (PNG, JPG, WEBP, or TIFF). Multiple page images are zipped together using JSZip for easy batch downloading.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Select the <strong>PDF to Image</strong> tool and upload your document.</li>
+          <li>Choose your preferred output format: PNG (lossless transparency), JPG (compressed photo layout), WEBP (optimized web asset), or TIFF (high-fidelity print asset).</li>
+          <li>Select your export resolution slider (Standard 72 DPI, High-Res 150 DPI, or Studio-Res 300 DPI).</li>
+          <li>Specify the pages you want to export (e.g., <code>All</code>, <code>1, 3</code>, or <code>2-5</code>).</li>
+          <li>Click "Rasterize &amp; Export". Download individual page images or export all of them together in a single ZIP file.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Helps web designers convert multi-page PDF mockups into image formats for social media sharing, presentations, or portfolio showcases.</p>
+
+        <hr/>
+
+        <!-- ==================== DEEP DIVE: ALL 7 IMAGE CONVERTER TOOLS ==================== -->
+        <h2>Detailed Guide to the 7 Professional Image Converter Utilities</h2>
+        <p>The Batch Image Converter in ImgConvert Pro includes seven key features that give you complete, pixel-level control over your image assets directly in the browser.</p>
+
+        <h3>Tool 1: Batch Format Conversion</h3>
+        <p><strong>Technical Overview:</strong> The conversion engine uses browser-native image codecs and WebAssembly decoding libraries. When an image is dropped, it is read into an <code>HTMLImageElement</code> or parsed into a raw bitmap buffer. The image is drawn onto an offscreen canvas with target dimensions. The canvas is then serialized using the <code>toBlob()</code> method with your chosen MIME type (e.g., <code>image/webp</code> or <code>image/avif</code>). For advanced formats like AVIF, custom WASM encoders are loaded locally to process the conversion, bypass browser format limitations, and output optimized files.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Navigate to the <strong>Image Converter</strong> page on <code>lootops.website</code>.</li>
+          <li>Drag and drop multiple images of varying formats (PNG, JPG, SVG, BMP, TIFF) into the upload zone.</li>
+          <li>Set a global output format from the master dropdown (e.g., <em>WEBP</em>) or specify formats individually for each file in the queue.</li>
+          <li>Click "Convert Batch". The app processes the files concurrently using browser worker threads.</li>
+          <li>Download your converted files individually or click "Export ZIP Archive" to save the entire batch.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Used by e-commerce managers to convert PNG photos to WEBP formats to speed up online store loading, or designers converting TIFF scans into PNGs for editing.</p>
+
+        <h3>Tool 2: Precision Quality Tuning</h3>
+        <p><strong>Technical Overview:</strong> For lossy compression formats (JPEG, WEBP, AVIF), the canvas serialization method <code>canvas.toBlob(callback, mimeType, quality)</code> accepts a quality parameter ranging from 0.0 to 1.0. ImgConvert Pro lets you adjust this parameter using a granular 1–100 quality slider. Our optimization script uses an iterative resizing worker to estimate the resulting file size before export, helping you find the perfect balance between compression and image quality.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Upload your images to the batch converter queue.</li>
+          <li>Select a lossy output format (WEBP, JPG, or AVIF) to unlock the quality controls.</li>
+          <li>Adjust the <strong>Quality Slider</strong> (recommended: 75–80% for web use, 90–95% for print).</li>
+          <li>Review the estimated output file size and quality comparison preview.</li>
+          <li>Click "Apply Quality Settings" to convert the batch using your chosen compression level.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Helps photographers optimize high-resolution portfolio photos for web viewing without introducing compression artifacts or slowing down page load speeds.</p>
+
+        <h3>Tool 3: Dynamic Scaling &amp; Resizing</h3>
+        <p><strong>Technical Overview:</strong> Resizing is performed by scaling images down using an HTML5 Canvas drawing context. When an image is loaded, its aspect ratio is calculated: <code>Ratio = Width / Height</code>. If aspect ratio lock is enabled, changing the target width recalculates the height proportionally, and vice versa. The canvas is initialized to these exact dimensions, and the image is drawn using the <code>drawImage()</code> method, which applies bilinear interpolation to keep scaled images looking sharp.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Add your files to the converter queue and locate the <strong>Resize Settings</strong> panel.</li>
+          <li>Select your resizing method: <em>Maintain Aspect Ratio</em> or <em>Custom Dimensions (Stretch)</em>.</li>
+          <li>Enter your target Width and Height in pixels.</li>
+          <li>Alternatively, choose a percentage scale (e.g., <code>50%</code> or <code>25%</code>) to scale the entire batch down quickly.</li>
+          <li>Click "Resize &amp; Convert" to apply the changes and download your resized images.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Enables bloggers to resize various raw photos to uniform dimensions (e.g., 800px width) to fit their website layouts.</p>
+
+        <h3>Tool 4: Padding &amp; Canvas Adjustment</h3>
+        <p><strong>Technical Overview:</strong> Canvas padding overlays the uploaded image on top of a solid background canvas. The canvas is set to the final desired outer dimensions. A background fill color is applied using <code>ctx.fillStyle = hexColor</code> and <code>ctx.fillRect()</code>. The uploaded image is then centered on this canvas using calculated coordinate offsets: <code>X = (CanvasWidth - ImageWidth) / 2</code> and <code>Y = (CanvasHeight - ImageHeight) / 2</code>, creating a padded border without stretching or distorting the original image.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Upload your images and open the <strong>Canvas &amp; Padding</strong> settings.</li>
+          <li>Enter your target outer canvas dimensions (e.g., <code>1080 x 1080</code> pixels for standard square ratios).</li>
+          <li>Open the hex color picker to choose your background padding color.</li>
+          <li>Adjust the padding border slider to change the spacing around the image.</li>
+          <li>Click "Apply Padding" to generate the new, padded images.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Helps online sellers pad product photos with a clean, white background to meet marketplace image guidelines, and lets social media managers create square layouts for platforms like Instagram.</p>
+
+        <h3>Tool 5: Transparency &amp; Alpha Control</h3>
+        <p><strong>Technical Overview:</strong> Transparency settings manage how format conversions handle alpha channels. If you are converting a transparent PNG to a format that does not support transparency (like JPEG), the alpha channel values are flattened against a solid background color. The canvas's 2D context is filled with the user's selected background color (defaulting to white) before drawing the transparent image, preventing the background from turning black or introducing unwanted artifacts during the conversion process.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Add your transparent PNG or SVG images to the converter queue.</li>
+          <li>Select a non-transparent output format like JPG.</li>
+          <li>Select your desired background color (usually white) using the color swatch tool.</li>
+          <li>If converting to WEBP or AVIF, you can toggle the "Preserve Transparency" option to keep the alpha channel active.</li>
+          <li>Click "Convert" to process and download your updated images.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Helps developers convert transparent website logos into solid-color JPG formats for use in email signatures and older applications that do not support transparency.</p>
+
+        <h3>Tool 6: Instant Batch Exports</h3>
+        <p><strong>Technical Overview:</strong> The batch export tool automates the serialization and packaging of multiple converted image files. As each image conversion completes, the resulting data is stored as a Blob. To download the files, we generate an in-memory ZIP archive using JSZip, compiling all the blobs into a single compressed package. The ZIP is then served directly to the user as an object URL, triggering a fast local download without needing to send the files back and forth to an external server.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Upload a batch of images (up to hundreds of files) to the converter queue.</li>
+          <li>Configure your desired formats, quality, and sizing options for the entire batch.</li>
+          <li>Click the prominent <strong>Convert All &amp; Zip</strong> button.</li>
+          <li>Watch the real-time conversion progress indicator.</li>
+          <li>Once processing is complete, your browser will automatically prompt you to download the consolidated ZIP file.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Essential for photographers and graphic designers who need to export large collections of high-resolution images to clients quickly and efficiently.</p>
+
+        <h3>Tool 7: Custom Watermark Embedding</h3>
+        <p><strong>Technical Overview:</strong> Watermark embedding draws a custom watermark text or image layer on top of an image's canvas. A 2D canvas context renders the text using adjustable fonts, sizes, and colors. A global alpha value (e.g., <code>ctx.globalAlpha = 0.3</code>) is set to apply semi-transparent opacity. Based on the user's selected positioning, coordinates are calculated to draw the watermark layer before saving the output image.</p>
+        <p><strong>Step-by-Step Guide:</strong></p>
+        <ol>
+          <li>Upload your images to the batch converter.</li>
+          <li>Locate the <strong>Watermark Overlay</strong> panel.</li>
+          <li>Type your custom watermark text (e.g., <code>&copy; Subhan Haider Photography</code>) or upload a PNG logo with transparency.</li>
+          <li>Configure your watermark settings: choose placement (Center, Bottom Right, or Tiled), adjust opacity, and set font size.</li>
+          <li>Click "Embed Watermarks &amp; Export" to apply the watermarks and download your secured images.</li>
+        </ol>
+        <p><strong>Practical Use Cases:</strong> Helps photographers protect their creative portfolios before publishing them online, and lets businesses add branded watermarks to product imagery.</p>
+
+        <hr/>
+
+        <!-- ==================== SEARCH QUERY GUIDES: 20+ STEP-BY-STEP RECIPES ==================== -->
+        <h2>Step-by-Step Guides for 20+ Highly Searched File Conversions</h2>
+        <p>Here are quick, step-by-step guides for the most common conversion tasks, helping you get the best results every time using ImgConvert Pro.</p>
+
+        <h3>1. How to Convert PNG to WEBP</h3>
+        <p><strong>Overview:</strong> WebP files are up to 30% smaller than PNGs while still supporting lossless compression and transparency. This guide shows you how to convert your files to WEBP in seconds.</p>
+        <ol>
+          <li>Navigate to the <strong>Image Converter</strong> page on <code>lootops.website</code>.</li>
+          <li>Upload your <code>.png</code> images using drag-and-drop or by browsing your files.</li>
+          <li>Set the global output format to <strong>WEBP</strong>.</li>
+          <li>Set the quality slider to <strong>80</strong> (recommended for the best balance of quality and file size) and make sure "Preserve Transparency" is checked.</li>
+          <li>Click "Convert Batch" and download your optimized WEBP files.</li>
+        </ol>
+
+        <h3>2. How to Convert JPG to PNG</h3>
+        <p><strong>Overview:</strong> Convert lossy JPEGs to lossless PNGs to prevent further compression artifacting when editing your files in other design tools.</p>
+        <ol>
+          <li>Go to the <strong>Image Converter</strong> page.</li>
+          <li>Upload your <code>.jpg</code> or <code>.jpeg</code> photos.</li>
+          <li>Set the output format option to <strong>PNG</strong>.</li>
+          <li>Click "Convert Batch". The app rasterizes the JPG files and outputs them as high-quality PNGs.</li>
+          <li>Download your files individually or as a zipped archive.</li>
+        </ol>
+
+        <h3>3. How to Convert WEBP to JPG</h3>
+        <p><strong>Overview:</strong> Convert newer WEBP files to the widely supported JPG format for compatibility with older editing programs and web platforms.</p>
+        <ol>
+          <li>Open the <strong>Image Converter</strong> tool.</li>
+          <li>Drag and drop your <code>.webp</code> images into the conversion queue.</li>
+          <li>Select <strong>JPG</strong> as your target output format.</li>
+          <li>Set your quality slider (recommended: 90 for high quality) and choose a background color for any transparent areas.</li>
+          <li>Click "Convert" to process and save your new JPG images.</li>
+        </ol>
+
+        <h3>4. How to Convert PNG to JPG</h3>
+        <p><strong>Overview:</strong> Convert transparent PNGs into standard JPGs, flattening any transparent areas with a solid background color.</p>
+        <ol>
+          <li>Navigate to the <strong>Image Converter</strong> workspace.</li>
+          <li>Upload your transparent <code>.png</code> logo or graphic.</li>
+          <li>Select <strong>JPG</strong> as your target format from the dropdown menu.</li>
+          <li>Select your background fill color (usually white) to replace any transparent areas.</li>
+          <li>Click "Convert Batch" to download your flattened JPG files.</li>
+        </ol>
+
+        <h3>5. How to Convert AVIF to WEBP</h3>
+        <p><strong>Overview:</strong> Convert next-gen AVIF files into the more widely compatible WEBP format for use on older web browsers and applications.</p>
+        <ol>
+          <li>Upload your <code>.avif</code> images to the conversion dashboard.</li>
+          <li>Select <strong>WEBP</strong> from the target format options.</li>
+          <li>Adjust the compression quality slider to your preferred setting (recommended: 80).</li>
+          <li>Click "Convert Batch" to process your files locally using WebAssembly.</li>
+          <li>Download your converted WEBP images.</li>
+        </ol>
+
+        <h3>6. How to Convert WEBP to AVIF</h3>
+        <p><strong>Overview:</strong> Convert WEBP images into the next-generation AVIF format, offering up to 20% better compression at equivalent visual quality.</p>
+        <ol>
+          <li>Open the <strong>Image Converter</strong> and upload your <code>.webp</code> files.</li>
+          <li>Select <strong>AVIF</strong> as your target output format.</li>
+          <li>Set the quality slider to 70 (excellent quality with tiny file sizes).</li>
+          <li>Click "Convert Batch" to run the local WASM encoder and export your optimized AVIF files.</li>
+        </ol>
+
+        <h3>7. How to Convert SVG to PNG</h3>
+        <p><strong>Overview:</strong> Render resolution-independent vector SVGs into standard raster PNGs at any custom size or resolution.</p>
+        <ol>
+          <li>Upload your vector <code>.svg</code> file to the converter dashboard.</li>
+          <li>Select <strong>PNG</strong> as your target output format.</li>
+          <li>Enter your desired pixel dimensions (e.g., 2000px width) in the resize settings to ensure a high-resolution export.</li>
+          <li>Click "Convert Batch" to render the vector graphics onto a canvas and download your crisp PNG.</li>
+        </ol>
+
+        <h3>8. How to Convert PNG to ICO</h3>
+        <p><strong>Overview:</strong> Convert standard PNG images into multi-resolution Windows ICO icon formats, perfect for website favicons.</p>
+        <ol>
+          <li>Upload your square <code>.png</code> file (recommended size: 512x512 pixels).</li>
+          <li>Select <strong>ICO</strong> as your target output format.</li>
+          <li>Choose your target icon sizes (e.g., 16x16, 32x32, and 48x48) from the ICO settings.</li>
+          <li>Click "Convert" to package the resolutions into a single <code>.ico</code> file and download the result.</li>
+        </ol>
+
+        <h3>9. How to Convert BMP to WEBP</h3>
+        <p><strong>Overview:</strong> Compress large, uncompressed Windows BMP images into small, web-optimized WEBP files while maintaining excellent visual quality.</p>
+        <ol>
+          <li>Go to the <strong>Image Converter</strong> page and upload your <code>.bmp</code> files.</li>
+          <li>Set your target output format to <strong>WEBP</strong>.</li>
+          <li>Adjust the quality slider to 80% to optimize compression.</li>
+          <li>Click "Convert Batch" to compress the files and download the lightweight results.</li>
+        </ol>
+
+        <h3>10. How to Convert TIFF to PDF</h3>
+        <p><strong>Overview:</strong> Package large, high-fidelity TIFF scanner files into standard, multi-page PDF documents for easy sharing and printing.</p>
+        <ol>
+          <li>Navigate to the <strong>PDF Tools</strong> dashboard and select the <strong>Office &amp; Media to PDF</strong> tab.</li>
+          <li>Upload your <code>.tiff</code> or <code>.tif</code> files.</li>
+          <li>Select "Merge into a single PDF document" if you want to compile multiple images into one file.</li>
+          <li>Click "Convert to PDF" to rasterize the layers and download your compiled PDF.</li>
+        </ol>
+
+        <h3>11. How to Convert PDF to PNG</h3>
+        <p><strong>Overview:</strong> Convert individual pages of a PDF document into high-resolution PNG images, preserving transparency and vector layouts.</p>
+        <ol>
+          <li>Go to the <strong>PDF Tools</strong> panel and select the <strong>PDF to Image</strong> tab.</li>
+          <li>Upload your PDF document.</li>
+          <li>Select <strong>PNG</strong> as the output format and set the resolution to 300 DPI for high-quality printing.</li>
+          <li>Click "Convert PDF" to process the pages and download the images in a single ZIP file.</li>
+        </ol>
+
+        <h3>12. How to Convert PDF to JPG</h3>
+        <p><strong>Overview:</strong> Convert multi-page PDF documents into compressed JPEG images, perfect for sharing on social media or inserting into presentations.</p>
+        <ol>
+          <li>Select the <strong>PDF to Image</strong> utility.</li>
+          <li>Upload your PDF file.</li>
+          <li>Select <strong>JPG</strong> as your target format and adjust the quality slider to 90.</li>
+          <li>Click "Convert PDF" to extract each page as a JPG image and download the batch ZIP archive.</li>
+        </ol>
+
+        <h3>13. How to Convert Word (DOCX) to PDF</h3>
+        <p><strong>Overview:</strong> Convert Microsoft Word documents into clean, standard PDF files entirely in your browser without uploading files to any external servers.</p>
+        <ol>
+          <li>Navigate to the <strong>PDF Tools</strong> page and select the <strong>Word to PDF</strong> tab.</li>
+          <li>Upload your <code>.docx</code> document.</li>
+          <li>Review the document layout in the preview panel and select your page orientation.</li>
+          <li>Click "Convert to PDF". The Mammoth.js parser compiles the layout entirely client-side.</li>
+          <li>Download your new PDF document.</li>
+        </ol>
+
+        <h3>14. How to Convert Excel (XLSX) to PDF</h3>
+        <p><strong>Overview:</strong> Convert Excel worksheets and grids into clean, printable PDF documents directly in the browser.</p>
+        <ol>
+          <li>Open the <strong>PDF Tools</strong> dashboard and select the <strong>Excel to PDF</strong> tab.</li>
+          <li>Upload your spreadsheet file (<code>.xlsx</code> or <code>.xls</code>).</li>
+          <li>Select your page orientation (Landscape is highly recommended for wide data tables) and margin size.</li>
+          <li>Click "Convert Sheet". The app compiles the spreadsheet tables into a clean PDF layout.</li>
+          <li>Download your printable PDF file.</li>
+        </ol>
+
+        <h3>15. How to Convert PowerPoint (PPTX) to PDF</h3>
+        <p><strong>Overview:</strong> Convert presentation slide decks into standard PDFs, perfect for distribution, printing, or viewing offline.</p>
+        <ol>
+          <li>Go to the <strong>PDF Tools</strong> dashboard and select the <strong>PowerPoint to PDF</strong> tab.</li>
+          <li>Upload your slide deck file (<code>.pptx</code>).</li>
+          <li>Choose your slide layout formatting options.</li>
+          <li>Click "Convert Presentation" to process the slides locally and download your PDF.</li>
+        </ol>
+
+        <h3>16. How to Split a PDF Document</h3>
+        <p><strong>Overview:</strong> Split large, multi-page PDFs into smaller documents using custom page ranges or page counts.</p>
+        <ol>
+          <li>Navigate to the <strong>PDF Tools</strong> page and select the <strong>PDF Splitter</strong> option.</li>
+          <li>Upload your document.</li>
+          <li>Select "Page Range" and type your target ranges (e.g., <code>1-2, 4-6</code>), or select "Split Every N Pages".</li>
+          <li>Click "Process Split" to partition your file instantly.</li>
+          <li>Download the split documents as a zipped archive.</li>
+        </ol>
+
+        <h3>17. How to Merge Multiple PDFs</h3>
+        <p><strong>Overview:</strong> Combine multiple separate PDF documents into a single, organized PDF file.</p>
+        <ol>
+          <li>Go to the <strong>PDF Tools</strong> dashboard and select the <strong>Page Organizer &amp; Sorter</strong> tab.</li>
+          <li>Upload all the PDF files you want to combine.</li>
+          <li>Drag and drop the thumbnails to arrange the files and pages in your preferred order.</li>
+          <li>Click "Merge &amp; Save" to compile the pages into a single PDF document.</li>
+          <li>Download your combined PDF.</li>
+        </ol>
+
+        <h3>18. How to Annotate a PDF Offline</h3>
+        <p><strong>Overview:</strong> Add notes, highlight text, and draw shapes on your PDF documents securely without uploading them to external servers.</p>
+        <ol>
+          <li>Navigate to <strong>PDF Tools</strong> and select the <strong>Interactive Annotator</strong> tab.</li>
+          <li>Upload your document.</li>
+          <li>Use the floating toolbar to select drawing pens, text highlights, comments, or geometric shapes.</li>
+          <li>Make your annotations directly on the pages.</li>
+          <li>Click "Export PDF" to download the annotated document.</li>
+        </ol>
+
+        <h3>19. How to Compress a PDF File Size</h3>
+        <p><strong>Overview:</strong> Shrink large PDFs to meet email and upload limits while keeping text and images clear.</p>
+        <ol>
+          <li>Open the <strong>PDF Compressor</strong> utility.</li>
+          <li>Upload your PDF file.</li>
+          <li>Select a compression preset: <em>Aggressive</em> (smallest size), <em>Medium</em> (recommended balance), or <em>Lossless</em>.</li>
+          <li>Click "Compress PDF" and watch the progress bar.</li>
+          <li>Review the file size savings and download your optimized PDF.</li>
+        </ol>
+
+        <h3>20. How to Extract Text from an Image (OCR)</h3>
+        <p><strong>Overview:</strong> Scan images or PDFs to extract editable text using the browser-based OCR engine.</p>
+        <ol>
+          <li>Navigate to the <strong>Offline OCR</strong> utility.</li>
+          <li>Upload your image (PNG, JPG) or scanned PDF document.</li>
+          <li>Select the primary language of the text.</li>
+          <li>Click "Start OCR Recognition" to run the local WASM text extraction.</li>
+          <li>Review, copy, or export the extracted text as a <code>.txt</code> file.</li>
+        </ol>
+
+        <h3>21. How to Watermark Your Images</h3>
+        <p><strong>Overview:</strong> Embed text or logo watermarks across a batch of images to protect your creative work before publishing it online.</p>
+        <ol>
+          <li>Go to the <strong>Image Converter</strong> page and upload your photos.</li>
+          <li>Locate the <strong>Watermark Overlay</strong> settings panel.</li>
+          <li>Type your custom watermark text or upload a transparent PNG logo.</li>
+          <li>Configure placement, size, and opacity settings.</li>
+          <li>Click "Apply &amp; Download" to export your watermarked images in a single ZIP file.</li>
+        </ol>
+
+        <h3>22. How to Watermark PDF Documents</h3>
+        <p><strong>Overview:</strong> Add "DRAFT", "CONFIDENTIAL", or custom branding text across all pages of a PDF document.</p>
+        <ol>
+          <li>Select the <strong>PDF Watermarker</strong> tab in the PDF Tools panel.</li>
+          <li>Upload your PDF document.</li>
+          <li>Type your custom watermark text and select placement, rotation, and opacity options.</li>
+          <li>Choose whether to draw the watermark on top of or behind the document content.</li>
+          <li>Click "Apply Watermark" to update the document and download the result.</li>
+        </ol>
+
+        <hr/>
+
+        <!-- ==================== ARCHITECTURAL PRINCIPLES & PERFORMANCE ==================== -->
+        <h2>Modern Browser Sandboxing &amp; Client-Side Media Engineering</h2>
+        <p>ImgConvert Pro uses a local-first architecture to provide desktop-class media processing performance directly in your browser. Here is an overview of the core technologies that make this possible:</p>
+
+        <h3>1. WebAssembly (WASM) Sandbox Compilation</h3>
+        <p>For complex image compression tasks (like AVIF encoding) and character recognition (OCR), standard JavaScript can be slow. ImgConvert Pro bypasses these performance limits by compiling high-performance C++ and Rust libraries into WebAssembly (WASM) binaries. These binary files run at near-native speeds inside the browser's sandbox environment, enabling fast, complex data processing without relying on external cloud servers.</p>
+
+        <h3>2. Offscreen Canvas &amp; Multi-threaded Web Workers</h3>
+        <p>Processing hundreds of images at once can freeze a website's user interface. To prevent this, ImgConvert Pro offloads heavy processing tasks to background threads using browser <strong>Web Workers</strong>. Combined with <strong>OffscreenCanvas</strong> APIs, these workers perform image scaling, color conversions, and canvas filtering in the background, keeping the user interface smooth and responsive throughout.</p>
+
+        <h3>3. Active Browser Memory Management &amp; Security</h3>
+        <p>Processing files locally requires careful memory management, as loading massive image batches or large PDFs can quickly exceed browser limits. ImgConvert Pro uses a dynamic memory allocation pipeline that processes files sequentially or in small batches. Once a file is processed, we release its memory immediately using the browser's <code>URL.revokeObjectURL()</code> API, avoiding memory leaks and keeping resource usage low. Furthermore, because all data is stored in temporary browser memory, it is permanently deleted as soon as you close the tab, keeping your files completely secure.</p>
+
+        <hr/>
+
         <h3>Navigation Directory — All Pages</h3>
         <nav>
           <a href="/">Home — ImgConvert Pro Document &amp; Image Processing Suite</a> |
