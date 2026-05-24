@@ -40,7 +40,7 @@ export function Footer() {
           <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2">
             {[
               ['https://www.lootops.me', 'Lootops'],
-              ['https://lootops.website', 'Lootops Web'],
+              ['https://www.lootops.website', 'Lootops Web'],
               ['https://subhan.tech', 'Subhan.tech'],
               ['https://codelens.site', 'CodeLens'],
               ['https://codiner.online', 'Codiner'],

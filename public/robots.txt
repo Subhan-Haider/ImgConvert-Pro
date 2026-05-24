@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://lootops.website/sitemap.xml
+Sitemap: https://www.lootops.website/sitemap.xml
