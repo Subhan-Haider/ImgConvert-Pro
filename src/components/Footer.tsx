@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Globe, Heart, Facebook, Linkedin, Youtube } from 'lucide-react';
+import { Globe, Heart } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -77,13 +77,13 @@ export function Footer() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/></svg> <span className="sr-only">TikTok</span>
             </a>
             <a href="https://www.facebook.com/ImgConvertPro" target="_blank" rel="noreferrer" className="flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-              <Facebook size={14} /> <span className="sr-only">Facebook</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg> <span className="sr-only">Facebook</span>
             </a>
             <a href="https://www.linkedin.com/company/imgconvertpro" target="_blank" rel="noreferrer" className="flex items-center gap-1.5 hover:text-blue-700 dark:hover:text-blue-500 transition-colors">
-              <Linkedin size={14} /> <span className="sr-only">LinkedIn</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></svg> <span className="sr-only">LinkedIn</span>
             </a>
             <a href="https://www.youtube.com/@ImgConvertPro" target="_blank" rel="noreferrer" className="flex items-center gap-1.5 hover:text-red-600 dark:hover:text-red-500 transition-colors">
-              <Youtube size={14} /> <span className="sr-only">YouTube</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2.5 7.1c.3-1.3 1.2-2.3 2.5-2.6C7.5 4 12 4 12 4s4.5 0 7 .5c1.3.3 2.2 1.3 2.5 2.6.5 1.7.5 4.9.5 4.9s0 3.2-.5 4.9c-.3 1.3-1.2 2.3-2.5-2.6-2.5.5-7 .5-7 .5s-4.5 0-7-.5c-1.3-.3-2.2-1.3-2.5-2.6C2 15.1 2 11.9 2 11.9s0-3.2.5-4.9z"/><path d="m10 15 5-3-5-3v6z"/></svg> <span className="sr-only">YouTube</span>
             </a>
           </div>
         </div>
