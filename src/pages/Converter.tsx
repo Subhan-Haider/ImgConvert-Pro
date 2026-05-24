@@ -32,14 +32,15 @@ function Slider({ label, id, min, max, value, onChange, unit = '%' }: {
 }
 
 // ── Toggle helper ────────────────────────────────────────────────────────────
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ label, checked, onChange, ariaLabel }: { label: string; checked: boolean; onChange: (v: boolean) => void; ariaLabel?: string }) {
   return (
     <button
       type="button"
       onClick={() => onChange(!checked)}
+      aria-label={ariaLabel || label || "Toggle selection"}
       className="flex items-center gap-2 cursor-pointer group focus:outline-none"
     >
-      <div className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${checked ? 'bg-primary-500' : 'bg-slate-200 dark:bg-white/10'}`}>
+      <div className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${checked ? 'bg-primary-500' : 'bg-slate-400 dark:bg-slate-600'}`}>
         <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${checked ? 'translate-x-4' : 'translate-x-0'}`} />
       </div>
       {label && <span className="text-xs text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:text-white transition-colors">{label}</span>}
@@ -234,10 +235,12 @@ export default function Converter() {
           <Card>
             <h3 className="font-semibold text-slate-900 dark:text-white mb-4 text-sm uppercase tracking-wide">Resize</h3>
             <div className="mb-3">
+              <label htmlFor="resizeMode" className="sr-only">Resize Mode</label>
               <select
+                id="resizeMode"
                 value={settings.resizeMode}
                 onChange={e => upd('resizeMode', e.target.value as any)}
-                className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white"
+                className="w-full bg-black/5 dark:bg-surface-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white"
               >
                 <option value="none">Original Size</option>
                 <option value="custom">Custom Size (Free Resize)</option>
@@ -251,11 +254,11 @@ export default function Converter() {
               <div className="grid grid-cols-2 gap-2">
                 {[['Width', 'resizeWidth'], ['Height', 'resizeHeight']].map(([lbl, key]) => (
                   <div key={key}>
-                    <label className="text-xs text-slate-600 dark:text-slate-400 mb-1 block">{lbl} (px)</label>
-                    <input type="number" placeholder="Auto"
+                    <label htmlFor={key} className="text-xs text-slate-600 dark:text-slate-400 mb-1 block">{lbl} (px)</label>
+                    <input type="number" placeholder="Auto" id={key}
                       value={(settings as any)[key] ?? ''}
                       onChange={e => upd(key as any, e.target.value ? Number(e.target.value) : undefined)}
-                      className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white" />
+                      className="w-full bg-black/5 dark:bg-surface-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white" />
                   </div>
                 ))}
               </div>
@@ -266,7 +269,7 @@ export default function Converter() {
           <Card>
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-slate-900 dark:text-white text-sm uppercase tracking-wide">Image Filters</h3>
-              <Toggle label="" checked={enableFilters} onChange={handleToggleFilters} />
+              <Toggle label="" ariaLabel="Toggle Image Filters" checked={enableFilters} onChange={handleToggleFilters} />
             </div>
             {enableFilters && (
               <div className="space-y-3 pt-2 animate-fade-in">
@@ -287,15 +290,17 @@ export default function Converter() {
           <Card>
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-slate-900 dark:text-white text-sm uppercase tracking-wide">Watermark</h3>
-              <Toggle label="" checked={settings.addWatermark} onChange={v => upd('addWatermark', v)} />
+              <Toggle label="" ariaLabel="Toggle Watermark" checked={settings.addWatermark} onChange={v => upd('addWatermark', v)} />
             </div>
             {settings.addWatermark && (
               <div className="space-y-3">
-                <input type="text" value={settings.watermarkText} placeholder="© My Watermark"
+                <label htmlFor="watermarkText" className="sr-only">Watermark Text</label>
+                <input type="text" id="watermarkText" value={settings.watermarkText} placeholder="© My Watermark"
                   onChange={e => upd('watermarkText', e.target.value)}
-                  className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white" />
-                <select value={settings.watermarkPosition} onChange={e => upd('watermarkPosition', e.target.value as any)}
-                  className="w-full bg-black/5 dark:bg-surface-800 border border-black/10 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
+                  className="w-full bg-black/5 dark:bg-surface-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white" />
+                <label htmlFor="watermarkPosition" className="sr-only">Watermark Position</label>
+                <select id="watermarkPosition" value={settings.watermarkPosition} onChange={e => upd('watermarkPosition', e.target.value as any)}
+                  className="w-full bg-black/5 dark:bg-surface-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white">
                   {['center','top-left','top-right','bottom-left','bottom-right'].map(p => (
                     <option key={p} value={p}>{p.replace('-', ' ').replace(/^\w/, c => c.toUpperCase())}</option>
                   ))}

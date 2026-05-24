@@ -36,7 +36,7 @@ export function UploadBox({ onFiles, disabled }: UploadBoxProps) {
         'transition-all duration-300',
         dragging
           ? 'border-primary-500 bg-primary-500/10 scale-[1.02]'
-          : 'border-black/10 dark:border-white/20 hover:border-primary-500/60 hover:bg-primary-500/5',
+          : 'border-slate-400 dark:border-slate-500 hover:border-primary-500/60 hover:bg-primary-500/5',
         disabled && 'opacity-50 cursor-not-allowed',
       )}
     >
@@ -61,7 +61,7 @@ export function UploadBox({ onFiles, disabled }: UploadBoxProps) {
         </p>
       </div>
 
-      <div className="px-4 py-1.5 rounded-full bg-black/5 dark:bg-white/5 border border-white/10 text-xs text-slate-600 dark:text-slate-400">
+      <div className="px-4 py-1.5 rounded-full bg-black/5 dark:bg-white/5 border border-slate-300 dark:border-slate-600 text-xs text-slate-600 dark:text-slate-400">
         PNG · JPG · WEBP · AVIF · PDF · SVG · BMP · TIFF
       </div>
 
