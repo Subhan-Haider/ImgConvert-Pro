@@ -1,0 +1,50 @@
+# ImgConvert Pro — Privacy-First In-Browser Image & PDF Processing Suite
+
+ImgConvert Pro (https://www.lootops.website/) is a desktop-class document and image processing application that operates entirely inside the client's web browser tab. Built with privacy and high-performance client computation in mind, all conversions, edits, and extractions are performed in-memory utilizing WebAssembly compiled binary modules, the SubtleCrypto API, and HTML5 Canvas context layers. Zero file data, private pages, or image streams are ever transmitted over the network or uploaded to external servers.
+
+## Core Capabilities
+
+### 1. Batch Image Converter (7 Professional Utilities)
+ImgConvert Pro provides a bulk conversion workbench supporting hundreds of files concurrently:
+- **Batch Format Conversion:** Multi-threaded conversion pipeline between PNG, JPG, WEBP, AVIF, SVG, ICO, BMP, and TIFF formats.
+- **Precision Quality Tuning:** Custom sliders mapping canvas serialization quality scales from 1% to 100%.
+- **Dynamic Scaling & Resizing:** Bilinear interpolation resizing, percentage-based scaling, and custom dimensions with optional aspect-ratio lock.
+- **Padding & Canvas Adjustment:** Centers raster inputs on custom canvases and appends solid padded borders.
+- **Transparency & Alpha Control:** Selectable background colors to replace alpha channels when converting transparent graphics to non-supported formats.
+- **Instant Batch Exports:** Packages all converted outputs as an in-memory ZIP folder using JSZip.
+- **Custom Watermark Embedding:** Embeds semi-transparent custom copyright text or logo overlays.
+
+### 2. Interactive PDF Suite (13 Dedicated Tools)
+A comprehensive document workspace using PDF.js and pdf-lib for in-browser computation:
+- **Interactive PDF Annotator:** Add freehand ink sketches, vector rectangles, circles, custom commentary, and page highlights.
+- **Page Organizer & Sorter:** Drag-and-drop page sorting, selective deletions, and rotations (90°, 180°, 270°).
+- **Precise PDF Splitter:** Partition documents by custom page ranges, single pages, or every N pages.
+- **Crop & Rotate Document:** Adjust native bounding `/CropBox` parameters and `/Rotate` variables.
+- **Grayscale B&W Converter:** Remove color layers and optimize documents for monochrome laser printing.
+- **Smart PDF Compressor:** Sub-sampling image assets and stream optimization to shrink file sizes.
+- **Offline OCR Text Extractor:** WebAssembly-driven Tesseract OCR character recognition to extract editable text from scanned sheets.
+- **Dynamic PDF Watermarker:** Apply repeating text layers or logo transparent watermark patterns.
+- **Dynamic Page Numbering:** Automates page indexing stamps (e.g., "Page 1 of N") across selectable coordinates.
+- **Forms & Widget Flattener:** Freeze AcroForms interactive input fields into baseline document paths.
+- **Document Metadata Editor:** Programmatically edit XMP and Info metadata trees (Title, Author, Keywords).
+- **Office-to-PDF Conversion:** Client-side Mammoth.js and jsPDF layout engines convert .docx, .xlsx, and .pptx files.
+- **PDF to High-Res Images:** Rasterize and export PDF sheets as high-resolution PNG, JPG, or WEBP files.
+
+## Technical Architecture & Sandboxing
+- **React 19 & TypeScript:** Scalable, state-driven front-end components.
+- **Tailwind CSS:** Fully responsive, highly optimized typography and layout templates.
+- **WebAssembly Sandboxed Modules:** Executes CPU-intensive routines (like AVIF/WebP encoding and Tesseract character recognition) at near-native speeds inside the browser sandbox.
+- **Active Memory Pruning:** Automatic garbage collection and object URL revocation using the browser's `URL.revokeObjectURL()` API, maintaining a small memory footprint.
+- **GDPR & HIPAA Compliance:** All files remain in volatile memory and vanish instantly upon page refresh or tab closure.
+
+## Navigation Directory
+
+- **Home Page:** https://www.lootops.website/
+- **Batch Image Converter:** https://www.lootops.website/converter
+- **PDF Suite Tools:** https://www.lootops.website/pdf-tools
+- **Complete Features:** https://www.lootops.website/features
+- **Technical Blog:** https://www.lootops.website/blog
+- **About Philosophy:** https://www.lootops.website/about
+- **Contact Channels:** https://www.lootops.website/contact
+- **Zero-Data Privacy Policy:** https://www.lootops.website/privacy
+- **MIT Terms of Service:** https://www.lootops.website/terms
